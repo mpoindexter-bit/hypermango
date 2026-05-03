@@ -1,0 +1,3074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HyperWeb — Stack Author</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #c0c0c0;
+    --darker: #808080;
+    --darkest: #000;
+    --white: #ffffff;
+    --highlight: #dfdfdf;
+    --shadow: #404040;
+    --black: #000000;
+    --card-bg: #ffffff;
+    --btn-face: #c0c0c0;
+    --accent: #000080;
+    --accent-light: #1084d0;
+    --toolbar-h: 44px;
+    --statusbar-h: 24px;
+    --card-w: 1063px;
+    --card-h: 797px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    background: var(--bg);
+    color: var(--black);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* ===== MENU BAR ===== */
+  #menubar {
+    background: var(--white);
+    border-bottom: 1px solid var(--black);
+    height: 22px;
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+
+  #project-name-wrap {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    margin-right: 8px;
+    gap: 4px;
+  }
+
+  #project-name-display {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--shadow);
+    cursor: pointer;
+    padding: 0 4px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    white-space: nowrap;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #project-name-display:hover {
+    border-color: var(--darker);
+    color: var(--black);
+  }
+
+  #project-name-input {
+    font-family: inherit;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--black);
+    border: 1px inset var(--bg);
+    background: var(--white);
+    padding: 0 4px;
+    height: 18px;
+    display: none;
+    width: 180px;
+  }
+  #project-name-input.editing { display: block; }
+  #project-name-display.hidden { display: none; }
+
+  .menu-item {
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 12px;
+    position: relative;
+  }
+  .menu-item:hover { background: var(--accent); color: var(--white); }
+  .menu-item.menu-open { background: var(--accent); color: var(--white); }
+  .menu-item:first-child { font-weight: bold; font-size: 14px; }
+
+  .dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--white);
+    border: 1px solid var(--black);
+    box-shadow: 2px 2px 0 var(--black);
+    z-index: 9999;
+    min-width: 180px;
+    color: var(--black);
+  }
+  .menu-item.menu-open .dropdown { display: block; }
+  .dropdown-item {
+    padding: 3px 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--black);
+    background: var(--white);
+  }
+  .dropdown-item:hover { background: var(--accent); color: var(--white); }
+  .dropdown-sep { border-top: 1px solid var(--darker); margin: 2px 0; }
+  .dropdown-item.disabled { color: var(--darker); pointer-events: none; }
+
+  /* ===== TOOLBAR ===== */
+  #toolbar {
+    background: var(--bg);
+    border-bottom: 2px solid var(--black);
+    height: var(--toolbar-h);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    flex-shrink: 0;
+  }
+
+  .tool-sep { width: 1px; background: var(--shadow); height: 28px; margin: 0 4px; }
+
+  .tool-btn {
+    width: 34px; height: 34px;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tool-btn:active, .tool-btn.active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+    background: var(--bg);
+  }
+  .tool-btn title { display: none; }
+  .tool-btn:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffe1;
+    border: 1px solid var(--black);
+    padding: 1px 4px;
+    white-space: nowrap;
+    font-size: 10px;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  .color-swatch {
+    width: 22px; height: 22px;
+    border: 2px solid var(--black);
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  /* Color picker dropdown trigger */
+  .color-picker-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .color-picker-wrap label {
+    font-size: 9px;
+    color: var(--shadow);
+    pointer-events: none;
+  }
+  .color-picker-trigger {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    padding: 2px 3px 2px 3px;
+    height: 28px;
+  }
+  .color-picker-trigger:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+  .color-picker-arrow {
+    font-size: 7px;
+    line-height: 1;
+    color: var(--black);
+    pointer-events: none;
+  }
+
+  /* The dropdown panel */
+  .color-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    box-shadow: 3px 3px 0 var(--black);
+    z-index: 500;
+    padding: 8px;
+    min-width: 168px;
+  }
+  .color-dropdown.open { display: block; }
+
+  .color-palette {
+    display: grid;
+    grid-template-columns: repeat(8, 18px);
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+  .palette-swatch {
+    width: 18px; height: 18px;
+    border: 1px solid var(--black);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .palette-swatch:hover {
+    outline: 2px solid var(--accent-light);
+    outline-offset: 1px;
+  }
+  .palette-swatch.selected {
+    outline: 2px solid var(--black);
+    outline-offset: 1px;
+  }
+
+  .color-dropdown-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .color-dropdown-row label {
+    font-size: 10px;
+    color: var(--black);
+    white-space: nowrap;
+  }
+  .color-dropdown-row input[type=color] {
+    width: 32px; height: 22px;
+    border: 1px solid var(--black);
+    padding: 0;
+    cursor: pointer;
+    background: none;
+  }
+  .no-fill-btn {
+    width: 100%;
+    margin-top: 6px;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: inherit;
+    font-size: 10px;
+    padding: 3px 6px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .no-fill-btn:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+
+  #stroke-color { background: #000; }
+  #fill-color { background: transparent; position: relative; }
+  #fill-color.none-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to top right, transparent calc(50% - 1px), red, transparent calc(50% + 1px));
+  }
+
+  .size-control { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+  .size-control label { font-size: 9px; color: var(--shadow); }
+  .size-control input { width: 42px; font-family: inherit; font-size: 11px; }
+
+  /* ===== MAIN AREA ===== */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ===== CARD STRIP ===== */
+  #card-strip {
+    width: 110px;
+    background: #a0a0a0;
+    border-right: 2px solid var(--black);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 6px;
+    flex-shrink: 0;
+  }
+  #card-strip::-webkit-scrollbar { width: 8px; }
+  #card-strip::-webkit-scrollbar-track { background: var(--bg); }
+  #card-strip::-webkit-scrollbar-thumb { background: var(--shadow); border: 1px solid var(--black); }
+
+  .card-thumb {
+    width: 96px; height: 72px;
+    background: var(--white);
+    border: 2px solid var(--shadow);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .card-thumb:hover { border-color: var(--accent-light); }
+  .card-thumb.selected { border: 2px solid var(--black); box-shadow: 0 0 0 2px var(--accent); }
+  .card-thumb canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+  .card-thumb-num {
+    position: absolute; bottom: 1px; right: 3px;
+    font-size: 9px; color: var(--shadow);
+    pointer-events: none;
+  }
+  .card-thumb-label {
+    position: absolute; top: 1px; left: 3px;
+    font-size: 8px; color: var(--shadow);
+    pointer-events: none;
+    max-width: 80px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  #add-card-btn {
+    width: 96px; height: 28px;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  #add-card-btn:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+
+  /* ===== CANVAS AREA ===== */
+  #canvas-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-conic-gradient(#b0b0b0 0% 25%, #c8c8c8 0% 50%) 0 0 / 16px 16px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #card-container {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+    box-shadow: 4px 4px 0 var(--black), 6px 6px 0 var(--shadow);
+    flex-shrink: 0;
+  }
+
+  #drawing-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--card-w);
+    height: var(--card-h);
+    background: var(--white);
+    display: block;
+  }
+
+  #ui-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--card-w);
+    height: var(--card-h);
+    pointer-events: none;
+  }
+
+  #buttons-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: var(--card-w);
+    height: var(--card-h);
+    pointer-events: none;
+  }
+
+  .hc-button {
+    position: absolute;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 8px;
+    pointer-events: all;
+    min-width: 60px;
+    min-height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .hc-button:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+
+  .hc-button.selected-btn {
+    outline: 2px dashed #0000ff;
+    outline-offset: 2px;
+  }
+
+  /* Invisible buttons: transparent in play, dashed outline in editor */
+  .hc-button.invisible-btn {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: transparent !important;
+  }
+  /* Editor ghost outline for invisible buttons */
+  .editor-mode .hc-button.invisible-btn {
+    outline: 2px dashed rgba(180, 0, 180, 0.7);
+    outline-offset: 1px;
+  }
+  .editor-mode .hc-button.invisible-btn.selected-btn {
+    outline: 2px dashed #0000ff;
+  }
+
+  .btn-handle {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: var(--white);
+    border: 1px solid var(--black);
+    cursor: nwse-resize;
+    right: -5px; bottom: -5px;
+    pointer-events: all;
+    z-index: 10;
+  }
+
+  /* ===== PLAY MODE ===== */
+  #play-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  #play-overlay.active { display: flex; }
+
+  #play-card-container {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+  }
+  #play-canvas { display: block; }
+  #play-buttons { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  #exit-play-btn {
+    position: fixed;
+    top: 10px; right: 10px;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    z-index: 600;
+  }
+
+  /* ===== DIALOGS ===== */
+  .dialog-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .dialog-backdrop.active { display: flex; }
+
+  .dialog {
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    min-width: 320px;
+    box-shadow: 4px 4px 0 var(--black);
+  }
+  .dialog-titlebar {
+    background: var(--accent);
+    color: var(--white);
+    padding: 4px 8px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dialog-close {
+    background: var(--btn-face);
+    border-top: 1px solid var(--highlight);
+    border-left: 1px solid var(--highlight);
+    border-bottom: 1px solid var(--shadow);
+    border-right: 1px solid var(--shadow);
+    width: 16px; height: 14px;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--black);
+    font-family: inherit;
+  }
+  .dialog-body { padding: 14px; }
+  .dialog-row { margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px; }
+  .dialog-row label { font-size: 11px; }
+  .dialog-row input, .dialog-row select, .dialog-row textarea {
+    font-family: inherit;
+    font-size: 11px;
+    border: 2px inset var(--bg);
+    padding: 3px;
+    background: var(--white);
+  }
+  .dialog-row textarea { resize: vertical; height: 60px; }
+  .dialog-footer { padding: 8px 14px; display: flex; justify-content: flex-end; gap: 8px; }
+
+  .win-btn {
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 14px;
+    cursor: pointer;
+    min-width: 60px;
+  }
+  .win-btn:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+  .win-btn.default { font-weight: bold; }
+
+  /* ===== STATUS BAR ===== */
+  #statusbar {
+    height: var(--statusbar-h);
+    background: var(--bg);
+    border-top: 2px solid var(--black);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 16px;
+    font-size: 10px;
+    color: var(--shadow);
+    flex-shrink: 0;
+  }
+  #statusbar span { display: flex; align-items: center; gap: 4px; }
+
+  /* ===== TEXT OBJECTS ===== */
+  .card-text-obj {
+    position: absolute;
+    cursor: move;
+    pointer-events: all;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.25;
+    min-width: 40px;
+    min-height: 20px;
+    user-select: none;
+    box-sizing: border-box;
+    border: 1px dashed transparent;
+  }
+  .card-text-obj.selected-text {
+    border: 1px dashed #0055ff;
+    outline: none;
+  }
+  .card-text-obj.editing-text {
+    cursor: text;
+    border: 1px solid #0055ff;
+    outline: none;
+    user-select: text;
+    caret-color: auto;
+  }
+  /* resize handle for text */
+  .text-resize-handle {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: #fff;
+    border: 1px solid #000;
+    cursor: nwse-resize;
+    right: -5px; bottom: -5px;
+    pointer-events: all;
+    z-index: 5;
+  }
+
+  /* ===== CARD EFFECTS ===== */
+  @keyframes cardShake {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    10%  { transform: translate(-6px, -4px) rotate(-1.5deg); }
+    20%  { transform: translate(7px, 3px) rotate(1deg); }
+    30%  { transform: translate(-5px, 5px) rotate(-0.8deg); }
+    40%  { transform: translate(6px, -3px) rotate(1.2deg); }
+    50%  { transform: translate(-4px, 4px) rotate(-1deg); }
+    60%  { transform: translate(5px, -2px) rotate(0.6deg); }
+    70%  { transform: translate(-3px, 3px) rotate(-0.5deg); }
+    80%  { transform: translate(3px, -2px) rotate(0.3deg); }
+    90%  { transform: translate(-2px, 1px) rotate(-0.2deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+  @keyframes cardNegative {
+    0%,49%  { filter: invert(1) hue-rotate(180deg); }
+    50%,100% { filter: none; }
+  }
+  @keyframes cardFlash {
+    0%,100% { filter: none; }
+    20%,60% { filter: brightness(3); }
+    40%,80% { filter: none; }
+  }
+  @keyframes cardWobble {
+    0%,100% { transform: scaleX(1) scaleY(1); }
+    20%     { transform: scaleX(1.04) scaleY(0.96); }
+    40%     { transform: scaleX(0.96) scaleY(1.04); }
+    60%     { transform: scaleX(1.03) scaleY(0.97); }
+    80%     { transform: scaleX(0.98) scaleY(1.02); }
+  }
+  .effect-shake   { animation: cardShake 0.5s ease-in-out; }
+  .effect-negative { animation: cardNegative 0.6s steps(1); }
+  .effect-flash   { animation: cardFlash 0.5s ease-in-out; }
+  .effect-wobble  { animation: cardWobble 0.5s ease-in-out; }
+
+  /* ===== BROWSER STORAGE DIALOG ===== */
+  .browser-stack-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 2px inset var(--bg);
+    background: var(--white);
+    margin-bottom: 8px;
+  }
+  .browser-stack-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 8px;
+    gap: 10px;
+    border-bottom: 1px solid var(--bg);
+    cursor: pointer;
+  }
+  .browser-stack-item:hover { background: #ddeeff; }
+  .browser-stack-item.selected { background: var(--accent); color: var(--white); }
+  .browser-stack-item.selected .bsi-meta { color: #aaccff; }
+  .bsi-name { font-size: 12px; flex: 1; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bsi-meta { font-size: 10px; color: var(--shadow); white-space: nowrap; }
+  .bsi-del {
+    background: none; border: none; cursor: pointer;
+    color: #aa0000; font-size: 13px; padding: 0 2px; line-height: 1;
+    flex-shrink: 0;
+  }
+  .bsi-del:hover { color: #ff0000; }
+  .browser-empty { padding: 16px; text-align: center; color: var(--shadow); font-size: 11px; }
+  #browser-storage-bar {
+    font-size: 10px; color: var(--shadow);
+    margin-bottom: 6px;
+  }
+  #browser-storage-bar span { color: var(--black); font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- MENU BAR -->
+<div id="menubar">
+  <div class="menu-item">✦</div>
+  <div class="menu-item" data-menu="file">File
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="newStack()">New Stack</div>
+      <div class="dropdown-item" onclick="saveStack()">Save Stack…</div>
+      <div class="dropdown-item" onclick="document.getElementById('load-file-input').click()">Open Stack…</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="exportStack()">Export as HTML</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="startEditProjectName()">Rename Project…</div>
+    </div>
+  </div>
+  <div class="menu-item" data-menu="edit">Edit
+    <div class="dropdown">
+      <div class="dropdown-item" id="menu-undo" onclick="undo()">Undo    Ctrl+Z</div>
+      <div class="dropdown-item" id="menu-redo" onclick="redo()">Redo    Ctrl+Y</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="clearCard()">Clear Card Drawing</div>
+      <div class="dropdown-item" onclick="deleteCurrentCard()">Delete Card</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="renameCard()">Rename Card…</div>
+    </div>
+  </div>
+  <div class="menu-item" data-menu="go">Go
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="goFirst()">First Card</div>
+      <div class="dropdown-item" onclick="goPrev()">Prev Card</div>
+      <div class="dropdown-item" onclick="goNext()">Next Card</div>
+      <div class="dropdown-item" onclick="goLast()">Last Card</div>
+    </div>
+  </div>
+  <div class="menu-item" data-menu="stack">Stack
+    <div class="dropdown">
+      <div class="dropdown-item" onclick="addCard()">Add Card</div>
+      <div class="dropdown-item" onclick="addButtonToCard()">Add Button</div>
+      <div class="dropdown-sep"></div>
+      <div class="dropdown-item" onclick="enterPlayMode()">▶ Play Stack</div>
+    </div>
+  </div>
+  <div id="project-name-wrap">
+    <span id="project-name-display" title="Click to rename project" onclick="startEditProjectName()">Untitled Stack</span>
+    <input type="text" id="project-name-input" maxlength="60" placeholder="Project name…"
+      onblur="commitProjectName()" onkeydown="projectNameKey(event)">
+  </div>
+</div>
+<input type="file" id="load-file-input" accept=".hweb,.json" style="display:none" onchange="loadStackFile(event)">
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <button class="tool-btn active" id="tool-pointer" data-tip="Pointer/Select" onclick="setTool('pointer')">⬡</button>
+  <button class="tool-btn" id="tool-pencil" data-tip="Pencil" onclick="setTool('pencil')">✏️</button>
+  <button class="tool-btn" id="tool-eraser" data-tip="Eraser" onclick="setTool('eraser')">⬜</button>
+  <button class="tool-btn" id="tool-rect" data-tip="Rectangle" onclick="setTool('rect')">▭</button>
+  <button class="tool-btn" id="tool-circle" data-tip="Ellipse" onclick="setTool('circle')">◯</button>
+  <button class="tool-btn" id="tool-fill" data-tip="Fill (rectangle interior)" onclick="setTool('fill')">▬</button>
+  <button class="tool-btn" id="tool-bucket" data-tip="Paint Bucket — flood fill" onclick="setTool('bucket')" style="font-size:14px">🪣</button>
+  <button class="tool-btn" id="tool-lasso" data-tip="Filled Shape Pencil — draw outline, fills inside" onclick="setTool('lasso')" style="font-size:14px">⬟</button>
+  <button class="tool-btn" id="tool-polygon" data-tip="Polygon — click vertices, double-click or close to finish" onclick="setTool('polygon')" style="font-size:13px">⬠</button>
+  <button class="tool-btn" id="tool-text" data-tip="Text Tool — click to place editable text" onclick="setTool('text')" style="font-size:15px;font-weight:bold;font-family:serif">T</button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" id="tool-button" data-tip="Add Button" onclick="addButtonToCard()">⬭</button>
+  <div class="tool-sep"></div>
+
+  <!-- STROKE COLOR DROPDOWN -->
+  <div class="color-picker-wrap" id="stroke-picker-wrap">
+    <label>STROKE</label>
+    <div class="color-picker-trigger" onclick="toggleColorDropdown('stroke')">
+      <div id="stroke-color" class="color-swatch"></div>
+      <span class="color-picker-arrow">▼</span>
+    </div>
+    <div class="color-dropdown" id="stroke-dropdown">
+      <div class="color-palette" id="stroke-palette"></div>
+      <div class="color-dropdown-row">
+        <label>Custom:</label>
+        <input type="color" id="stroke-custom-picker" value="#000000" oninput="applyStrokeColor(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- FILL COLOR DROPDOWN -->
+  <div class="color-picker-wrap" id="fill-picker-wrap">
+    <label>FILL</label>
+    <div class="color-picker-trigger" onclick="toggleColorDropdown('fill')">
+      <div id="fill-color" class="color-swatch none-fill"></div>
+      <span class="color-picker-arrow">▼</span>
+    </div>
+    <div class="color-dropdown" id="fill-dropdown">
+      <div class="color-palette" id="fill-palette"></div>
+      <div class="color-dropdown-row">
+        <label>Custom:</label>
+        <input type="color" id="fill-custom-picker" value="#ffffff" oninput="applyFillColor(this.value)">
+      </div>
+      <button class="no-fill-btn" onclick="setNoFill()">⊘ No Fill</button>
+    </div>
+  </div>
+
+  <div class="tool-sep"></div>
+  <div class="size-control">
+    <label>SIZE</label>
+    <input type="range" id="brush-size" min="1" max="40" value="3" oninput="updateBrushSize(this.value)" style="width:60px">
+  </div>
+  <span id="size-display" style="font-size:10px;min-width:20px">3</span>
+
+  <div class="tool-sep"></div>
+  <div class="size-control">
+    <label>FONT</label>
+    <select id="font-family" style="font-family:inherit;font-size:10px;width:100px;border:1px inset var(--bg);background:var(--white)">
+      <option value="'Share Tech Mono', monospace">Mono</option>
+      <option value="serif">Serif</option>
+      <option value="sans-serif">Sans</option>
+      <option value="'VT323', monospace">VT323</option>
+      <option value="cursive">Cursive</option>
+      <option value="fantasy">Fantasy</option>
+    </select>
+  </div>
+  <div class="size-control">
+    <label>PT</label>
+    <input type="number" id="font-size" min="8" max="144" value="20" style="width:44px;font-family:inherit;font-size:11px;border:1px inset var(--bg);background:var(--white)">
+  </div>
+  <!-- UNDO / REDO -->
+  <button class="tool-btn" id="undo-btn" data-tip="Undo (Ctrl+Z)" onclick="undo()" style="font-size:18px;font-weight:bold;" title="Undo">↺</button>
+  <button class="tool-btn" id="redo-btn" data-tip="Redo (Ctrl+Y)" onclick="redo()" style="font-size:18px;font-weight:bold;" title="Redo">↻</button>
+
+  <div class="tool-sep"></div>
+  <button class="tool-btn" data-tip="▶ Play" onclick="enterPlayMode()" style="font-size:12px;width:auto;padding:0 8px;">▶ Play</button>
+  <button class="tool-btn" data-tip="Save to disk" onclick="saveStack()" style="font-size:12px;width:auto;padding:0 8px;">💾 Save</button>
+  <button class="tool-btn" data-tip="Save to browser storage" onclick="saveToBrowser()" style="font-size:11px;width:auto;padding:0 6px;">🌐 Save to Browser</button>
+  <button class="tool-btn" data-tip="Load from browser storage" onclick="openBrowserLoadDialog()" style="font-size:11px;width:auto;padding:0 6px;">📂 Browser Stacks</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- CARD STRIP -->
+  <div id="card-strip">
+    <button id="add-card-btn" onclick="addCard()">+ Add Card</button>
+  </div>
+
+  <!-- CANVAS AREA -->
+  <div id="canvas-area">
+    <div id="card-container">
+      <canvas id="drawing-canvas" width="1063" height="797"></canvas>
+      <canvas id="ui-canvas" width="1063" height="797"></canvas>
+      <div id="text-layer"></div>
+      <div id="buttons-layer" class="editor-mode"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span>🃏 Card: <b id="status-card">1/1</b></span>
+  <span>🔧 Tool: <b id="status-tool">pointer</b></span>
+  <span>📐 Pos: <b id="status-pos">0, 0</b></span>
+  <span style="margin-left:auto">HyperWeb Stack Author v1.0</span>
+</div>
+
+<!-- PLAY OVERLAY -->
+<div id="play-overlay">
+  <button id="exit-play-btn" onclick="exitPlayMode()">✕ Exit Play</button>
+  <div id="play-card-container" style="position:relative;width:1063px;height:797px">
+    <canvas id="play-canvas" width="1063" height="797"></canvas>
+    <div id="play-text-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></div>
+    <div id="play-buttons" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
+  </div>
+</div>
+
+<!-- BUTTON EDIT DIALOG -->
+<div class="dialog-backdrop" id="btn-dialog">
+  <div class="dialog">
+    <div class="dialog-titlebar">
+      <span>Button Properties</span>
+      <button class="dialog-close" onclick="closeDialog('btn-dialog')">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-row">
+        <label>Button Label:</label>
+        <input type="text" id="btn-label" placeholder="Click Me" maxlength="40">
+      </div>
+      <div class="dialog-row">
+        <label>Go to Card (card number, 0 = none):</label>
+        <input type="number" id="btn-goto" min="0" value="0">
+      </div>
+      <div class="dialog-row">
+        <label>Play Sound:</label>
+        <select id="btn-sound">
+          <option value="">— none —</option>
+          <option value="click">Click</option>
+          <option value="beep">Beep</option>
+          <option value="chime">Chime</option>
+          <option value="whoosh">Whoosh</option>
+          <option value="drum">Drum</option>
+          <option value="glass">Glass</option>
+          <option value="__custom__">Custom sound file…</option>
+        </select>
+      </div>
+      <div class="dialog-row" id="custom-sound-row" style="display:none">
+        <label>Upload sound (MP3/OGG/WAV, max 2 MB):</label>
+        <input type="file" id="btn-sound-file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp3,.mp3,.ogg,.wav" style="background:none;border:none;padding:0;font-size:11px">
+        <span id="custom-sound-status" style="font-size:10px;color:var(--shadow)"></span>
+      </div>
+      <div class="dialog-row" style="flex-direction:row;align-items:center;gap:8px">
+        <input type="checkbox" id="btn-invisible" style="width:auto">
+        <label for="btn-invisible">Invisible button (hidden in Play mode, outlined in Editor)</label>
+      </div>
+      <div class="dialog-row">
+        <label>Visual Effect:</label>
+        <select id="btn-effect">
+          <option value="">— none —</option>
+          <option value="shake">🫨 Shake — card rattles briefly</option>
+          <option value="negative">🌗 Negative — colors invert and back</option>
+          <option value="flash">⚡ Flash — card flashes white</option>
+          <option value="wobble">🫧 Wobble — card squishes and stretches</option>
+        </select>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="win-btn" onclick="deleteFocusedButton()">Delete</button>
+      <button class="win-btn" onclick="closeDialog('btn-dialog')">Cancel</button>
+      <button class="win-btn default" onclick="applyButtonProps()">OK</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- CARD RENAME DIALOG -->
+<div class="dialog-backdrop" id="rename-dialog">
+  <div class="dialog">
+    <div class="dialog-titlebar">
+      <span>Rename Card</span>
+      <button class="dialog-close" onclick="closeDialog('rename-dialog')">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-row">
+        <label>Card Name:</label>
+        <input type="text" id="rename-input" maxlength="30">
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="win-btn" onclick="closeDialog('rename-dialog')">Cancel</button>
+      <button class="win-btn default" onclick="applyRename()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- BROWSER STORAGE DIALOG -->
+<div class="dialog-backdrop" id="browser-load-dialog">
+  <div class="dialog" style="min-width:400px">
+    <div class="dialog-titlebar">
+      <span>Browser Saved Stacks</span>
+      <button class="dialog-close" onclick="closeDialog('browser-load-dialog')">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div id="browser-storage-bar">Storage used: <span id="browser-storage-used">—</span> of ~5 MB</div>
+      <div class="browser-stack-list" id="browser-stack-list"></div>
+      <div style="font-size:10px;color:var(--shadow);margin-top:2px">
+        Click a stack to select it. ✕ removes it from browser storage.
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="win-btn" onclick="closeDialog('browser-load-dialog')">Cancel</button>
+      <button class="win-btn default" id="browser-load-btn" onclick="loadFromBrowserSelected()">Load Selected</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CARD DIMENSIONS
+// ============================================================
+const CARD_W = 1063;
+const CARD_H = 797;
+
+// ============================================================
+// STATE
+// ============================================================
+let stack = []; // Array of card objects
+let currentCardIdx = 0;
+let currentTool = 'pointer';
+let strokeColor = '#000000';
+let fillColor = null; // null = no fill
+let brushSize = 3;
+let isDrawing = false;
+let drawStart = null;
+let lastPos = null;
+let snapshotBeforeDraw = null;
+let focusedButtonId = null;
+let lassoPoints = []; // for the filled-shape pencil tool
+let polyPoints = []; // for the polygon tool (click-to-place vertices)
+let polyActive = false; // true while a polygon is being drawn
+let projectName = 'Untitled Stack';
+let fontFamily = "'Share Tech Mono', monospace";
+let fontSize = 20;
+let selectedTextId = null;
+
+// Custom uploaded sounds: id -> { name, dataUrl }
+const customSounds = {};
+
+// ============================================================
+// UNDO / REDO
+// ============================================================
+const UNDO_MAX = 12;
+// Per-card undo stacks: { [cardIdx]: { past: [], future: [] } }
+// Each entry: { imageData: dataURL, buttons: [...] }
+const undoStacks = {};
+
+function getUndoStack() {
+  if (!undoStacks[currentCardIdx]) undoStacks[currentCardIdx] = { past: [], future: [] };
+  return undoStacks[currentCardIdx];
+}
+
+function pushUndoState() {
+  const s = getUndoStack();
+  s.past.push({
+    imageData: drawingCanvas.toDataURL(),
+    buttons: JSON.parse(JSON.stringify(stack[currentCardIdx].buttons)),
+    textObjects: JSON.parse(JSON.stringify(stack[currentCardIdx].textObjects || []))
+  });
+  if (s.past.length > UNDO_MAX) s.past.shift();
+  s.future = []; // clear redo on new action
+  updateUndoMenuItems();
+}
+
+function undo() {
+  const s = getUndoStack();
+  if (s.past.length === 0) return;
+  // Push current state to future
+  s.future.push({
+    imageData: drawingCanvas.toDataURL(),
+    buttons: JSON.parse(JSON.stringify(stack[currentCardIdx].buttons)),
+    textObjects: JSON.parse(JSON.stringify(stack[currentCardIdx].textObjects || []))
+  });
+  const state = s.past.pop();
+  applyUndoState(state);
+}
+
+function redo() {
+  const s = getUndoStack();
+  if (s.future.length === 0) return;
+  s.past.push({
+    imageData: drawingCanvas.toDataURL(),
+    buttons: JSON.parse(JSON.stringify(stack[currentCardIdx].buttons)),
+    textObjects: JSON.parse(JSON.stringify(stack[currentCardIdx].textObjects || []))
+  });
+  const state = s.future.pop();
+  applyUndoState(state);
+}
+
+function applyUndoState(state) {
+  stack[currentCardIdx].buttons = JSON.parse(JSON.stringify(state.buttons));
+  stack[currentCardIdx].textObjects = JSON.parse(JSON.stringify(state.textObjects || []));
+  const img = new Image();
+  img.onload = () => {
+    drawCtx.clearRect(0, 0, CARD_W, CARD_H);
+    drawCtx.drawImage(img, 0, 0);
+    stack[currentCardIdx].imageData = drawingCanvas.toDataURL();
+    renderButtonsLayer();
+    renderTextLayer();
+    updateThumb(currentCardIdx);
+    updateUndoMenuItems();
+  };
+  img.src = state.imageData;
+}
+
+function updateUndoMenuItems() {
+  const s = getUndoStack();
+  const uEl = document.getElementById('menu-undo');
+  const rEl = document.getElementById('menu-redo');
+  if (uEl) uEl.classList.toggle('disabled', s.past.length === 0);
+  if (rEl) rEl.classList.toggle('disabled', s.future.length === 0);
+  // Also dim toolbar buttons
+  const uBtn = document.getElementById('undo-btn');
+  const rBtn = document.getElementById('redo-btn');
+  if (uBtn) uBtn.style.opacity = s.past.length === 0 ? '0.35' : '1';
+  if (rBtn) rBtn.style.opacity = s.future.length === 0 ? '0.35' : '1';
+}
+
+const drawingCanvas = document.getElementById('drawing-canvas');
+const drawCtx = drawingCanvas.getContext('2d');
+const uiCanvas = document.getElementById('ui-canvas');
+const uiCtx = uiCanvas.getContext('2d');
+const buttonsLayer = document.getElementById('buttons-layer');
+const cardStrip = document.getElementById('card-strip');
+
+// ============================================================
+// CARD DATA MODEL
+// ============================================================
+function createCard(name) {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = CARD_W;
+  offscreen.height = CARD_H;
+  const ctx = offscreen.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  return {
+    id: Date.now() + Math.random(),
+    name: name || `Card ${stack.length + 1}`,
+    imageData: null, // stored as data URL
+    textObjects: [],
+    buttons: []
+  };
+}
+
+function saveCurrentCardImage() {
+  if (stack.length === 0) return;
+  stack[currentCardIdx].imageData = drawingCanvas.toDataURL();
+}
+
+function loadCardImage(card) {
+  return new Promise(resolve => {
+    drawCtx.clearRect(0, 0, CARD_W, CARD_H);
+    drawCtx.fillStyle = '#ffffff';
+    drawCtx.fillRect(0, 0, CARD_W, CARD_H);
+    if (card.imageData) {
+      const img = new Image();
+      img.onload = () => { drawCtx.drawImage(img, 0, 0); resolve(); };
+      img.src = card.imageData;
+    } else { resolve(); }
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  addCard(true);
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+async function switchToCard(idx) {
+  if (idx < 0 || idx >= stack.length) return;
+  saveCurrentCardImage();
+  deselectButton();
+  deselectText();
+  currentCardIdx = idx;
+  await loadCardImage(stack[currentCardIdx]);
+  renderButtonsLayer();
+  renderTextLayer();
+  updateStrip();
+  updateStatus();
+  updateUndoMenuItems();
+}
+
+function goFirst() { switchToCard(0); }
+function goPrev() { switchToCard(currentCardIdx - 1); }
+function goNext() { switchToCard(currentCardIdx + 1); }
+function goLast() { switchToCard(stack.length - 1); }
+
+// ============================================================
+// ADD / DELETE CARDS
+// ============================================================
+async function addCard(silent) {
+  saveCurrentCardImage();
+  const card = createCard();
+  stack.push(card);
+  currentCardIdx = stack.length - 1;
+  await loadCardImage(card);
+  renderButtonsLayer();
+  renderTextLayer();
+  rebuildStrip();
+  updateStatus();
+}
+
+function deleteCurrentCard() {
+  if (stack.length <= 1) { alert('Cannot delete the only card!'); return; }
+  stack.splice(currentCardIdx, 1);
+  currentCardIdx = Math.min(currentCardIdx, stack.length - 1);
+  loadCardImage(stack[currentCardIdx]).then(() => {
+    renderButtonsLayer();
+    rebuildStrip();
+    updateStatus();
+  });
+}
+
+function clearCard() {
+  pushUndoState();
+  drawCtx.fillStyle = '#ffffff';
+  drawCtx.fillRect(0, 0, CARD_W, CARD_H);
+  saveCurrentCardImage();
+  updateThumb(currentCardIdx);
+}
+
+function renameCard() {
+  document.getElementById('rename-input').value = stack[currentCardIdx].name;
+  openDialog('rename-dialog');
+}
+
+function applyRename() {
+  stack[currentCardIdx].name = document.getElementById('rename-input').value || stack[currentCardIdx].name;
+  closeDialog('rename-dialog');
+  rebuildStrip();
+}
+
+// ============================================================
+// CARD STRIP
+// ============================================================
+function rebuildStrip() {
+  // Remove existing thumbs
+  const existing = cardStrip.querySelectorAll('.card-thumb');
+  existing.forEach(e => e.remove());
+
+  const addBtn = document.getElementById('add-card-btn');
+  stack.forEach((card, i) => {
+    const div = document.createElement('div');
+    div.className = 'card-thumb' + (i === currentCardIdx ? ' selected' : '');
+    div.dataset.idx = i;
+    div.onclick = () => switchToCard(i);
+
+    const cnv = document.createElement('canvas');
+    cnv.width = CARD_W; cnv.height = CARD_H;
+    div.appendChild(cnv);
+
+    const num = document.createElement('div');
+    num.className = 'card-thumb-num';
+    num.textContent = i + 1;
+    div.appendChild(num);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'card-thumb-label';
+    lbl.textContent = card.name;
+    div.appendChild(lbl);
+
+    cardStrip.insertBefore(div, addBtn);
+    drawThumb(cnv, card, i);
+  });
+}
+
+function drawThumb(cnv, card, idx) {
+  const ctx = cnv.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  if (card.imageData) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0);
+    img.src = card.imageData;
+  }
+  // Draw button rects
+  card.buttons.forEach(btn => {
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+  });
+}
+
+function updateStrip() {
+  const thumbs = cardStrip.querySelectorAll('.card-thumb');
+  thumbs.forEach((t, i) => {
+    t.classList.toggle('selected', i === currentCardIdx);
+  });
+}
+
+function updateThumb(idx) {
+  const thumbs = cardStrip.querySelectorAll('.card-thumb');
+  if (thumbs[idx]) {
+    const cnv = thumbs[idx].querySelector('canvas');
+    if (cnv) drawThumb(cnv, stack[idx], idx);
+  }
+}
+
+// ============================================================
+// TOOLS
+// ============================================================
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn[id^="tool-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-' + tool);
+  if (btn) btn.classList.add('active');
+  document.getElementById('status-tool').textContent = tool;
+
+  // cursor
+  const cursors = { pointer: 'default', pencil: 'crosshair', eraser: 'cell', rect: 'crosshair', circle: 'crosshair', fill: 'crosshair', bucket: 'crosshair', lasso: 'crosshair', polygon: 'crosshair', text: 'text' };
+  drawingCanvas.style.cursor = cursors[tool] || 'default';
+
+  if (tool !== 'polygon' && polyActive) cancelPolygon();
+  if (tool !== 'pointer' && tool !== 'text') { deselectText(); }
+  // Update pointer-events on text layer based on tool
+  if (textLayer) {
+    const textEls = textLayer.querySelectorAll('.card-text-obj');
+    textEls.forEach(el => {
+      el.style.pointerEvents = (tool === 'text' || tool === 'pointer') ? 'all' : 'none';
+    });
+  }
+
+  if (tool !== 'pointer') deselectButton();
+}
+
+function updateBrushSize(v) {
+  brushSize = parseInt(v);
+  document.getElementById('size-display').textContent = v;
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function getPos(e, clamp) {
+  const rect = drawingCanvas.getBoundingClientRect();
+  const scaleX = CARD_W / rect.width;
+  const scaleY = CARD_H / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  let x = Math.round((src.clientX - rect.left) * scaleX);
+  let y = Math.round((src.clientY - rect.top) * scaleY);
+  if (clamp) {
+    x = Math.max(0, Math.min(CARD_W, x));
+    y = Math.max(0, Math.min(CARD_H, y));
+  }
+  return { x, y };
+}
+
+// mousedown only on canvas; move+up on document so drags that leave the canvas still track
+drawingCanvas.addEventListener('mousedown', startDraw);
+drawingCanvas.addEventListener('mousemove', e => {
+  if (!isDrawing) {
+    const p = getPos(e);
+    document.getElementById('status-pos').textContent = `${p.x}, ${p.y}`;
+  }
+});
+// mouseleave only ends draws for tools that shouldn't track outside (pencil, eraser)
+drawingCanvas.addEventListener('mouseleave', e => {
+  if (isDrawing && (currentTool === 'pencil' || currentTool === 'eraser')) {
+    endDraw(e);
+  }
+});
+// rect, circle, fill, lasso track on document so mouse leaving canvas doesn't end the draw
+document.addEventListener('mousemove', e => {
+  if (currentTool === 'polygon' && polyActive) {
+    polyMouseMove(e);
+    return;
+  }
+  if (!isDrawing) return;
+  if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill' || currentTool === 'lasso') {
+    moveDraw(e, true); // true = clamp coords
+  }
+});
+document.addEventListener('mouseup', e => {
+  if (!isDrawing) return;
+  if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill' || currentTool === 'lasso') {
+    endDraw(e, true); // true = clamp coords
+  }
+});
+// canvas-level move/up for pencil/eraser (already handled by canvas events)
+drawingCanvas.addEventListener('mousemove', e => {
+  if (!isDrawing) return;
+  if (currentTool !== 'rect' && currentTool !== 'circle' && currentTool !== 'fill' && currentTool !== 'lasso') {
+    moveDraw(e, false);
+  }
+});
+drawingCanvas.addEventListener('mouseup', e => {
+  if (!isDrawing) return;
+  if (currentTool !== 'rect' && currentTool !== 'circle' && currentTool !== 'fill' && currentTool !== 'lasso') {
+    endDraw(e, false);
+  }
+});
+
+function startDraw(e) {
+  if (currentTool === 'pointer' || currentTool === 'text' || currentTool === 'polygon') return;
+  const p = getPos(e);
+
+  // Bucket flood fill: instant, no drag needed
+  if (currentTool === 'bucket') {
+    pushUndoState();
+    const color = fillColor || strokeColor;
+    floodFill(p.x, p.y, color);
+    saveCurrentCardImage();
+    updateThumb(currentCardIdx);
+    return;
+  }
+
+  isDrawing = true;
+  drawStart = p;
+  lastPos = p;
+  pushUndoState();
+  snapshotBeforeDraw = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+
+  if (currentTool === 'pencil') {
+    drawCtx.beginPath();
+    drawCtx.moveTo(p.x, p.y);
+  } else if (currentTool === 'lasso') {
+    // Track all points for the filled shape
+    lassoPoints = [p];
+    drawCtx.beginPath();
+    drawCtx.moveTo(p.x, p.y);
+  }
+}
+
+function moveDraw(e, clamp) {
+  if (!isDrawing) return;
+  const p = getPos(e, clamp);
+
+  if (currentTool === 'pencil') {
+    drawCtx.globalCompositeOperation = 'source-over';
+    drawCtx.strokeStyle = strokeColor;
+    drawCtx.lineWidth = brushSize;
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+    drawCtx.lineTo(p.x, p.y);
+    drawCtx.stroke();
+  } else if (currentTool === 'lasso') {
+    lassoPoints.push(p);
+    // Redraw from snapshot, show current outline with closing line preview
+    drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawLassoPreview();
+  } else if (currentTool === 'eraser') {
+    drawCtx.globalCompositeOperation = 'source-over';
+    drawCtx.fillStyle = '#ffffff';
+    const s = brushSize * 3;
+    drawCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+  } else if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill') {
+    // Preview: restore snapshot then draw
+    drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawShape(drawCtx, drawStart, p);
+  }
+  lastPos = p;
+}
+
+function endDraw(e, clamp) {
+  if (!isDrawing) return;
+  isDrawing = false;
+  const p = getPos(e, clamp);
+
+  if (currentTool === 'lasso') {
+    lassoPoints.push(p);
+    // Restore snapshot, draw the final filled+stroked closed shape
+    if (snapshotBeforeDraw) drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawLassoFinal();
+    lassoPoints = [];
+  } else if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill') {
+    if (snapshotBeforeDraw) drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawShape(drawCtx, drawStart, p);
+  }
+
+  drawCtx.beginPath();
+  drawCtx.globalCompositeOperation = 'source-over';
+  saveCurrentCardImage();
+  updateThumb(currentCardIdx);
+  snapshotBeforeDraw = null;
+}
+
+function drawShape(ctx, a, b) {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const w = Math.abs(b.x - a.x);
+  const h = Math.abs(b.y - a.y);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.lineWidth = brushSize;
+  ctx.strokeStyle = strokeColor;
+
+  if (currentTool === 'fill') {
+    ctx.fillStyle = strokeColor;
+    ctx.fillRect(x, y, w, h);
+    return;
+  }
+
+  if (fillColor) {
+    ctx.fillStyle = fillColor;
+  }
+
+  if (currentTool === 'rect') {
+    if (fillColor) ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  } else if (currentTool === 'circle') {
+    ctx.beginPath();
+    ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+    if (fillColor) ctx.fill();
+    ctx.stroke();
+  }
+}
+
+// ============================================================
+// LASSO (FILLED SHAPE PENCIL) HELPERS
+// ============================================================
+function drawLassoPreview() {
+  if (lassoPoints.length < 2) return;
+  const ctx = drawCtx;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = brushSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Draw the freehand stroke so far
+  ctx.beginPath();
+  ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+  for (let i = 1; i < lassoPoints.length; i++) {
+    ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+  }
+  ctx.stroke();
+
+  // Draw a dashed closing line preview back to start
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = strokeColor;
+  ctx.beginPath();
+  ctx.moveTo(lassoPoints[lassoPoints.length - 1].x, lassoPoints[lassoPoints.length - 1].y);
+  ctx.lineTo(lassoPoints[0].x, lassoPoints[0].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawLassoFinal() {
+  if (lassoPoints.length < 2) return;
+  const ctx = drawCtx;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = brushSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Build the closed path
+  ctx.beginPath();
+  ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+  for (let i = 1; i < lassoPoints.length; i++) {
+    ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+  }
+  ctx.closePath(); // draws the straight closing line back to start
+
+  // Fill interior first (so stroke sits on top)
+  const fc = fillColor || null;
+  if (fc) {
+    ctx.fillStyle = fc;
+    ctx.fill();
+  }
+  ctx.stroke();
+}
+
+// ============================================================
+// POLYGON TOOL
+// ============================================================
+const POLY_SNAP_RADIUS = 18; // pixels on screen — snap to first point within this distance
+
+function polyCanvasPos(e) {
+  // Returns canvas coords, clamped to card bounds
+  const rect = drawingCanvas.getBoundingClientRect();
+  const scaleX = CARD_W / rect.width;
+  const scaleY = CARD_H / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: Math.max(0, Math.min(CARD_W, Math.round((src.clientX - rect.left) * scaleX))),
+    y: Math.max(0, Math.min(CARD_H, Math.round((src.clientY - rect.top) * scaleY))),
+    // Also return screen coords of the first point for snap-circle sizing
+    screenScale: scaleX
+  };
+}
+
+function polyScreenDist(p1, p2, scaleX) {
+  // Distance in screen pixels between two canvas-coordinate points
+  const dx = (p1.x - p2.x) / scaleX;
+  const dy = (p1.y - p2.y) / scaleX;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function cancelPolygon() {
+  polyPoints = [];
+  polyActive = false;
+  clearUiCanvas();
+}
+
+function clearUiCanvas() {
+  uiCtx.clearRect(0, 0, CARD_W, CARD_H);
+}
+
+function drawPolyPreview(cursorPt, snapping) {
+  clearUiCanvas();
+  if (polyPoints.length === 0) return;
+
+  const ctx = uiCtx;
+  ctx.save();
+  ctx.lineWidth = Math.max(1, brushSize);
+  ctx.strokeStyle = strokeColor;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = 1;
+
+  // Draw committed segments
+  ctx.beginPath();
+  ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+  for (let i = 1; i < polyPoints.length; i++) {
+    ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+  }
+  ctx.stroke();
+
+  // Draw preview segment to cursor (dashed)
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = Math.max(1, brushSize);
+  ctx.strokeStyle = strokeColor;
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(polyPoints[polyPoints.length - 1].x, polyPoints[polyPoints.length - 1].y);
+  if (snapping) {
+    ctx.lineTo(polyPoints[0].x, polyPoints[0].y);
+  } else {
+    ctx.lineTo(cursorPt.x, cursorPt.y);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw vertex dots
+  polyPoints.forEach((pt, i) => {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, Math.max(3, brushSize * 0.8), 0, Math.PI * 2);
+    ctx.fillStyle = strokeColor;
+    ctx.fill();
+  });
+
+  // Draw snap circle around first point when close
+  if (polyPoints.length >= 2) {
+    const snapRadCanvas = POLY_SNAP_RADIUS / (CARD_W / drawingCanvas.getBoundingClientRect().width);
+    ctx.beginPath();
+    ctx.arc(polyPoints[0].x, polyPoints[0].y, snapRadCanvas, 0, Math.PI * 2);
+    ctx.strokeStyle = snapping ? '#00aaff' : 'rgba(0,120,255,0.35)';
+    ctx.lineWidth = snapping ? 2 : 1;
+    ctx.setLineDash([]);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function polyMouseMove(e) {
+  if (!polyActive || polyPoints.length === 0) return;
+  const p = polyCanvasPos(e);
+  const snapping = polyPoints.length >= 2 &&
+    polyScreenDist(p, polyPoints[0], CARD_W / drawingCanvas.getBoundingClientRect().width) < POLY_SNAP_RADIUS;
+  drawPolyPreview(p, snapping);
+}
+
+function polyCommit() {
+  // Draw the final polygon onto the drawing canvas
+  if (polyPoints.length < 2) { cancelPolygon(); return; }
+  clearUiCanvas();
+  const ctx = drawCtx;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = Math.max(1, brushSize);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+  for (let i = 1; i < polyPoints.length; i++) {
+    ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+  }
+  ctx.closePath();
+  if (fillColor) {
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+  }
+  ctx.stroke();
+  polyPoints = [];
+  polyActive = false;
+  saveCurrentCardImage();
+  updateThumb(currentCardIdx);
+}
+
+// Click: add a vertex (or close if snapping to first point)
+drawingCanvas.addEventListener('click', e => {
+  if (currentTool !== 'polygon') return;
+  // Prevent the click that ends a dblclick from adding an extra point
+  if (e.detail >= 2) return;
+
+  const p = polyCanvasPos(e);
+  if (!polyActive) {
+    // Start a new polygon
+    pushUndoState();
+    snapshotBeforeDraw = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+    polyPoints = [p];
+    polyActive = true;
+    drawPolyPreview(p, false);
+    return;
+  }
+
+  // Check snap-to-close
+  if (polyPoints.length >= 2) {
+    const snapping = polyScreenDist(p, polyPoints[0], CARD_W / drawingCanvas.getBoundingClientRect().width) < POLY_SNAP_RADIUS;
+    if (snapping) { polyCommit(); return; }
+  }
+
+  polyPoints.push(p);
+  drawPolyPreview(p, false);
+});
+
+// Double-click: close and commit
+drawingCanvas.addEventListener('dblclick', e => {
+  if (currentTool !== 'polygon' || !polyActive) return;
+  // Remove the point added by the preceding single-click (detail===1 fires before dblclick)
+  // The click handler already added the point on click detail=1; remove it so the
+  // double-click doesn't add a stray duplicate vertex right before closing.
+  if (polyPoints.length > 1) polyPoints.pop();
+  polyCommit();
+});
+
+// Escape cancels in-progress polygon
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && polyActive) {
+    // Restore pre-polygon state then cancel
+    if (snapshotBeforeDraw) drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    cancelPolygon();
+  }
+}, true); // capture phase so it fires before other keydown handlers
+function floodFill(startX, startY, fillColorHex) {
+  const imgData = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+  const data = imgData.data;
+  const W = CARD_W;
+  const H = CARD_H;
+
+  // Parse fill color
+  const fillR = parseInt(fillColorHex.slice(1, 3), 16);
+  const fillG = parseInt(fillColorHex.slice(3, 5), 16);
+  const fillB = parseInt(fillColorHex.slice(5, 7), 16);
+  const fillA = 255;
+
+  // Get target color at click point
+  const idx = (startY * W + startX) * 4;
+  const targetR = data[idx];
+  const targetG = data[idx + 1];
+  const targetB = data[idx + 2];
+  const targetA = data[idx + 3];
+
+  // If same color already, nothing to do
+  if (targetR === fillR && targetG === fillG && targetB === fillB && targetA === fillA) return;
+
+  // Tolerance for color matching (handles anti-aliasing edges)
+  const TOLERANCE = 32;
+
+  function colorMatch(i) {
+    return Math.abs(data[i]     - targetR) <= TOLERANCE &&
+           Math.abs(data[i + 1] - targetG) <= TOLERANCE &&
+           Math.abs(data[i + 2] - targetB) <= TOLERANCE &&
+           Math.abs(data[i + 3] - targetA) <= TOLERANCE;
+  }
+
+  function setColor(i) {
+    data[i]     = fillR;
+    data[i + 1] = fillG;
+    data[i + 2] = fillB;
+    data[i + 3] = fillA;
+  }
+
+  // Scanline flood fill (fast)
+  const visited = new Uint8Array(W * H);
+  const stack = [[startX, startY]];
+  visited[startY * W + startX] = 1;
+
+  while (stack.length > 0) {
+    const [cx, cy] = stack.pop();
+
+    // Scan left
+    let lx = cx;
+    while (lx > 0 && colorMatch((cy * W + lx - 1) * 4) && !visited[cy * W + lx - 1]) {
+      lx--;
+      visited[cy * W + lx] = 1;
+    }
+    // Scan right
+    let rx = cx;
+    while (rx < W - 1 && colorMatch((cy * W + rx + 1) * 4) && !visited[cy * W + rx + 1]) {
+      rx++;
+      visited[cy * W + rx] = 1;
+    }
+
+    // Fill the scanline
+    for (let x = lx; x <= rx; x++) {
+      setColor((cy * W + x) * 4);
+
+      // Check row above
+      if (cy > 0) {
+        const ni = cy - 1;
+        if (!visited[ni * W + x] && colorMatch((ni * W + x) * 4)) {
+          visited[ni * W + x] = 1;
+          stack.push([x, ni]);
+        }
+      }
+      // Check row below
+      if (cy < H - 1) {
+        const ni = cy + 1;
+        if (!visited[ni * W + x] && colorMatch((ni * W + x) * 4)) {
+          visited[ni * W + x] = 1;
+          stack.push([x, ni]);
+        }
+      }
+    }
+  }
+
+  drawCtx.putImageData(imgData, 0, 0);
+}
+
+// ============================================================
+// COLORS — dropdown picker
+// ============================================================
+
+// Classic Mac-style palette (64 swatches)
+const PALETTE_COLORS = [
+  '#000000','#222222','#444444','#666666','#888888','#aaaaaa','#cccccc','#ffffff',
+  '#7f0000','#ff0000','#ff6600','#ff9900','#ffcc00','#ffff00','#ccff00','#00ff00',
+  '#007f00','#005500','#003300','#006600','#009900','#00cc00','#33ff33','#66ff66',
+  '#000080','#0000ff','#0066ff','#00ccff','#00ffff','#00ffcc','#00ff99','#00ff66',
+  '#660066','#990099','#cc00cc','#ff00ff','#ff66ff','#ff99cc','#ffccff','#ffffff',
+  '#4d0000','#800000','#cc3300','#ff6633','#ff9966','#ffcc99','#ffe5cc','#fff5ee',
+  '#003333','#006666','#009999','#33cccc','#66ffff','#99ffff','#ccffff','#e5ffff',
+  '#1a0033','#330066','#6600cc','#9933ff','#cc66ff','#dd99ff','#eeccff','#f5eeff',
+];
+
+let openColorDropdown = null;
+
+function buildPalette(containerId, type) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  PALETTE_COLORS.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'palette-swatch';
+    sw.style.background = color;
+    sw.title = color;
+    sw.onclick = (e) => {
+      e.stopPropagation();
+      if (type === 'stroke') applyStrokeColor(color);
+      else applyFillColor(color);
+      closeColorDropdowns();
+    };
+    container.appendChild(sw);
+  });
+}
+
+function toggleColorDropdown(type) {
+  const dropId = type === 'stroke' ? 'stroke-dropdown' : 'fill-dropdown';
+  const drop = document.getElementById(dropId);
+  const isOpen = drop.classList.contains('open');
+  closeColorDropdowns();
+  if (!isOpen) {
+    drop.classList.add('open');
+    openColorDropdown = drop;
+  }
+}
+
+function closeColorDropdowns() {
+  document.querySelectorAll('.color-dropdown').forEach(d => d.classList.remove('open'));
+  openColorDropdown = null;
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('.color-picker-wrap')) closeColorDropdowns();
+});
+
+function applyStrokeColor(v) {
+  strokeColor = v;
+  const sw = document.getElementById('stroke-color');
+  sw.style.background = v;
+  sw.classList.remove('none-fill');
+  const cp = document.getElementById('stroke-custom-picker');
+  if (cp) cp.value = v;
+  updatePaletteSelection('stroke');
+}
+
+function applyFillColor(v) {
+  fillColor = v;
+  const sw = document.getElementById('fill-color');
+  sw.style.background = v;
+  sw.classList.remove('none-fill');
+  const cp = document.getElementById('fill-custom-picker');
+  if (cp) cp.value = v;
+  updatePaletteSelection('fill');
+}
+
+// Keep for backwards compat (used in load/undo restore paths)
+function applyFillColorInline(v) { applyFillColor(v); }
+
+function setNoFill() {
+  fillColor = null;
+  const sw = document.getElementById('fill-color');
+  sw.style.background = 'transparent';
+  sw.classList.add('none-fill');
+  closeColorDropdowns();
+  updatePaletteSelection('fill');
+}
+
+function updatePaletteSelection(type) {
+  const paletteId = type === 'stroke' ? 'stroke-palette' : 'fill-palette';
+  const currentColor = type === 'stroke' ? strokeColor : fillColor;
+  document.querySelectorAll(`#${paletteId} .palette-swatch`).forEach(sw => {
+    sw.classList.toggle('selected', sw.style.background === currentColor ||
+      sw.title.toLowerCase() === (currentColor || '').toLowerCase());
+  });
+}
+
+// ============================================================
+// BUTTONS
+// ============================================================
+let buttonIdCounter = 1;
+
+function addButtonToCard() {
+  pushUndoState();
+  const btn = {
+    id: 'hcbtn_' + (buttonIdCounter++),
+    label: 'Button',
+    x: 50, y: 50, w: 100, h: 32,
+    goto: 0,
+    sound: '',
+    invisible: false
+  };
+  stack[currentCardIdx].buttons.push(btn);
+  saveCurrentCardImage();
+  renderButtonsLayer();
+  updateThumb(currentCardIdx);
+}
+
+function renderButtonsLayer() {
+  buttonsLayer.innerHTML = '';
+  if (!stack[currentCardIdx]) return;
+  stack[currentCardIdx].buttons.forEach(btn => {
+    const el = document.createElement('div');
+    el.className = 'hc-button' + (btn.invisible ? ' invisible-btn' : '');
+    el.id = btn.id;
+    el.textContent = btn.label;
+    el.style.left = btn.x + 'px';
+    el.style.top = btn.y + 'px';
+    el.style.width = btn.w + 'px';
+    el.style.height = btn.h + 'px';
+    el.style.pointerEvents = 'all';
+
+    // Drag
+    el.addEventListener('mousedown', e => {
+      if (currentTool !== 'pointer') return;
+      e.stopPropagation();
+      selectButton(btn.id);
+      pushUndoState();
+      const startX = e.clientX - btn.x;
+      const startY = e.clientY - btn.y;
+      const move = ev => {
+        btn.x = Math.max(0, ev.clientX - startX);
+        btn.y = Math.max(0, ev.clientY - startY);
+        el.style.left = btn.x + 'px';
+        el.style.top = btn.y + 'px';
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        saveCurrentCardImage();
+        updateThumb(currentCardIdx);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+
+    // Double-click to edit
+    el.addEventListener('dblclick', e => {
+      if (currentTool !== 'pointer') return;
+      e.stopPropagation();
+      selectButton(btn.id);
+      openButtonDialog(btn.id);
+    });
+
+    // Resize handle
+    const handle = document.createElement('div');
+    handle.className = 'btn-handle';
+    handle.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      pushUndoState();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = btn.w;
+      const startH = btn.h;
+      const move = ev => {
+        btn.w = Math.max(40, startW + ev.clientX - startX);
+        btn.h = Math.max(20, startH + ev.clientY - startY);
+        el.style.width = btn.w + 'px';
+        el.style.height = btn.h + 'px';
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        updateThumb(currentCardIdx);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+    el.appendChild(handle);
+
+    buttonsLayer.appendChild(el);
+  });
+
+  if (focusedButtonId) selectButton(focusedButtonId);
+}
+
+function selectButton(id) {
+  focusedButtonId = id;
+  document.querySelectorAll('.hc-button').forEach(el => el.classList.remove('selected-btn'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('selected-btn');
+}
+
+function deselectButton() {
+  focusedButtonId = null;
+  document.querySelectorAll('.hc-button').forEach(el => el.classList.remove('selected-btn'));
+}
+
+function openButtonDialog(id) {
+  const btn = stack[currentCardIdx].buttons.find(b => b.id === id);
+  if (!btn) return;
+  document.getElementById('btn-label').value = btn.label;
+  document.getElementById('btn-goto').value = btn.goto || 0;
+  document.getElementById('btn-invisible').checked = !!btn.invisible;
+  document.getElementById('btn-effect').value = btn.effect || '';
+
+  const soundSel = document.getElementById('btn-sound');
+  const customRow = document.getElementById('custom-sound-row');
+  const customStatus = document.getElementById('custom-sound-status');
+  document.getElementById('btn-sound-file').value = '';
+
+  // Rebuild custom options
+  // Remove old custom options
+  Array.from(soundSel.options).forEach(o => { if (o.dataset.custom) o.remove(); });
+  // Add current custom sounds
+  Object.entries(customSounds).forEach(([csid, cs]) => {
+    const opt = document.createElement('option');
+    opt.value = csid;
+    opt.textContent = '🎵 ' + cs.name;
+    opt.dataset.custom = '1';
+    soundSel.insertBefore(opt, soundSel.querySelector('option[value="__custom__"]'));
+  });
+
+  if (btn.sound && customSounds[btn.sound]) {
+    soundSel.value = btn.sound;
+    customRow.style.display = 'flex';
+    customStatus.textContent = '✓ ' + customSounds[btn.sound].name;
+  } else {
+    soundSel.value = btn.sound || '';
+    customRow.style.display = soundSel.value === '__custom__' ? 'flex' : 'none';
+    customStatus.textContent = '';
+  }
+
+  soundSel.onchange = () => {
+    customRow.style.display = soundSel.value === '__custom__' ? 'flex' : 'none';
+  };
+
+  focusedButtonId = id;
+  openDialog('btn-dialog');
+}
+
+async function applyButtonProps() {
+  const btn = stack[currentCardIdx].buttons.find(b => b.id === focusedButtonId);
+  if (!btn) { closeDialog('btn-dialog'); return; }
+  pushUndoState();
+  btn.label = document.getElementById('btn-label').value || 'Button';
+  btn.goto = parseInt(document.getElementById('btn-goto').value) || 0;
+  btn.invisible = document.getElementById('btn-invisible').checked;
+  btn.effect = document.getElementById('btn-effect').value || '';
+
+  const soundSel = document.getElementById('btn-sound');
+  const soundVal = soundSel.value;
+
+  if (soundVal === '__custom__') {
+    // Try to load the file
+    const fileInput = document.getElementById('btn-sound-file');
+    const file = fileInput.files[0];
+    if (file) {
+      const MAX = 2 * 1024 * 1024; // 2 MB
+      if (file.size > MAX) {
+        alert(`Sound file is too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 2 MB.`);
+        return;
+      }
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const csid = 'custom_' + Date.now();
+      customSounds[csid] = { name: file.name, dataUrl };
+      btn.sound = csid;
+    } else {
+      // No file selected — keep old sound if it was custom, else clear
+      if (!btn.sound || !customSounds[btn.sound]) btn.sound = '';
+    }
+  } else {
+    btn.sound = soundVal;
+  }
+
+  closeDialog('btn-dialog');
+  renderButtonsLayer();
+  updateThumb(currentCardIdx);
+}
+
+function deleteFocusedButton() {
+  pushUndoState();
+  stack[currentCardIdx].buttons = stack[currentCardIdx].buttons.filter(b => b.id !== focusedButtonId);
+  focusedButtonId = null;
+  closeDialog('btn-dialog');
+  renderButtonsLayer();
+  updateThumb(currentCardIdx);
+}
+
+// ============================================================
+// TEXT TOOL
+// ============================================================
+let textIdCounter = 1;
+let textLayer; // set in START
+
+function getCardTexts() {
+  if (!stack[currentCardIdx].textObjects) stack[currentCardIdx].textObjects = [];
+  return stack[currentCardIdx].textObjects;
+}
+
+function addTextObject(x, y) {
+  pushUndoState();
+  const id = 'htxt_' + (textIdCounter++);
+  const obj = {
+    id, x, y, w: 200, h: 40,
+    content: '',
+    fontFamily, fontSize,
+    color: strokeColor
+  };
+  getCardTexts().push(obj);
+  renderTextLayer();
+  // Immediately put it in edit mode
+  const el = document.getElementById(id);
+  if (el) startEditingText(id, el);
+  return obj;
+}
+
+function renderTextLayer() {
+  if (!textLayer) return;
+  textLayer.innerHTML = '';
+  textLayer.style.position = 'absolute';
+  textLayer.style.top = '0'; textLayer.style.left = '0';
+  textLayer.style.width = CARD_W + 'px'; textLayer.style.height = CARD_H + 'px';
+  textLayer.style.pointerEvents = 'none';
+  textLayer.style.zIndex = '5';
+
+  const texts = getCardTexts();
+  texts.forEach(obj => {
+    const el = document.createElement('div');
+    el.id = obj.id;
+    el.className = 'card-text-obj';
+    el.style.left = obj.x + 'px';
+    el.style.top = obj.y + 'px';
+    el.style.width = obj.w + 'px';
+    el.style.minHeight = obj.h + 'px';
+    el.style.fontSize = obj.fontSize + 'px';
+    el.style.fontFamily = obj.fontFamily;
+    el.style.color = obj.color;
+    el.style.pointerEvents = currentTool === 'text' || currentTool === 'pointer' ? 'all' : 'none';
+    el.contentEditable = 'false';
+    if (obj.content) {
+      el.textContent = obj.content;
+    } else {
+      el.innerHTML = '';
+    }
+
+    // Resize handle
+    const handle = document.createElement('div');
+    handle.className = 'text-resize-handle';
+    handle.addEventListener('mousedown', e => { e.stopPropagation(); startResizeText(e, obj, el); });
+    el.appendChild(handle);
+
+    // Pointer: drag on mousedown; double-click or text-tool click to edit
+    el.addEventListener('mousedown', e => {
+      if (e.target === handle) return;
+      e.stopPropagation();
+      if (currentTool === 'pointer' || currentTool === 'text') {
+        selectText(obj.id);
+        if (currentTool === 'text') {
+          startEditingText(obj.id, el);
+        } else {
+          startDragText(e, obj, el);
+        }
+      }
+    });
+    el.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      selectText(obj.id);
+      startEditingText(obj.id, el);
+    });
+
+    textLayer.appendChild(el);
+  });
+
+  if (selectedTextId) selectText(selectedTextId);
+}
+
+function selectText(id) {
+  selectedTextId = id;
+  document.querySelectorAll('.card-text-obj').forEach(el => el.classList.remove('selected-text'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('selected-text');
+}
+
+function deselectText() {
+  // Commit any active edit first
+  commitEditingText();
+  selectedTextId = null;
+  document.querySelectorAll('.card-text-obj').forEach(el => {
+    el.classList.remove('selected-text', 'editing-text');
+    el.contentEditable = 'false';
+  });
+}
+
+let currentlyEditingTextId = null;
+
+function startEditingText(id, el) {
+  // Commit previous if different
+  if (currentlyEditingTextId && currentlyEditingTextId !== id) commitEditingText();
+  currentlyEditingTextId = id;
+  // Clear any stale nodes before enabling editing (fixes vertical-char bug on empty new text)
+  const obj = getCardTexts().find(o => o.id === id);
+  if (obj && !obj.content) el.innerHTML = '';
+  el.contentEditable = 'true';
+  el.classList.add('editing-text');
+  el.classList.remove('selected-text');
+  el.focus();
+  // Place cursor at end
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  // Save on blur/input
+  const onInput = () => {
+    const obj = getCardTexts().find(o => o.id === id);
+    if (obj) {
+      obj.content = el.innerText;
+      obj.h = el.offsetHeight;
+    }
+  };
+  const onBlur = () => {
+    commitEditingText();
+  };
+  el._textInput = onInput;
+  el._textBlur = onBlur;
+  el.addEventListener('input', onInput);
+  el.addEventListener('blur', onBlur);
+}
+
+function commitEditingText() {
+  if (!currentlyEditingTextId) return;
+  const el = document.getElementById(currentlyEditingTextId);
+  if (el) {
+    const obj = getCardTexts().find(o => o.id === currentlyEditingTextId);
+    if (obj) {
+      obj.content = el.innerText;
+      obj.h = Math.max(obj.fontSize + 8, el.offsetHeight);
+    }
+    el.contentEditable = 'false';
+    el.classList.remove('editing-text');
+    if (el._textInput) el.removeEventListener('input', el._textInput);
+    if (el._textBlur) el.removeEventListener('blur', el._textBlur);
+    saveCurrentCardImage();
+    updateThumb(currentCardIdx);
+  }
+  currentlyEditingTextId = null;
+}
+
+function startDragText(e, obj, el) {
+  const startX = e.clientX - obj.x;
+  const startY = e.clientY - obj.y;
+  const move = ev => {
+    obj.x = Math.max(0, ev.clientX - startX);
+    obj.y = Math.max(0, ev.clientY - startY);
+    el.style.left = obj.x + 'px';
+    el.style.top = obj.y + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    updateThumb(currentCardIdx);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+function startResizeText(e, obj, el) {
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const startW = obj.w;
+  const startH = obj.h;
+  const move = ev => {
+    obj.w = Math.max(60, startW + ev.clientX - startX);
+    obj.h = Math.max(obj.fontSize + 8, startH + ev.clientY - startY);
+    el.style.width = obj.w + 'px';
+    el.style.minHeight = obj.h + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    updateThumb(currentCardIdx);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+function deleteSelectedText() {
+  if (!selectedTextId) return;
+  pushUndoState();
+  stack[currentCardIdx].textObjects = getCardTexts().filter(o => o.id !== selectedTextId);
+  selectedTextId = null;
+  currentlyEditingTextId = null;
+  renderTextLayer();
+  updateThumb(currentCardIdx);
+}
+
+// Intercept canvas click for text tool
+drawingCanvas.addEventListener('click', e => {
+  if (currentTool !== 'text') return;
+  const p = getPos(e);
+  // Don't create new text if clicking on existing text object
+  if (e.target !== drawingCanvas) return;
+  addTextObject(p.x, p.y);
+});
+
+// Make font controls update selected text
+document.getElementById('font-family').addEventListener('change', function() {
+  fontFamily = this.value;
+  if (selectedTextId) {
+    const obj = getCardTexts().find(o => o.id === selectedTextId);
+    if (obj) {
+      obj.fontFamily = fontFamily;
+      renderTextLayer();
+      if (currentlyEditingTextId === selectedTextId) startEditingText(selectedTextId, document.getElementById(selectedTextId));
+    }
+  }
+});
+document.getElementById('font-size').addEventListener('change', function() {
+  fontSize = Math.max(8, Math.min(144, parseInt(this.value) || 20));
+  this.value = fontSize;
+  if (selectedTextId) {
+    const obj = getCardTexts().find(o => o.id === selectedTextId);
+    if (obj) {
+      obj.fontSize = fontSize;
+      renderTextLayer();
+      if (currentlyEditingTextId === selectedTextId) startEditingText(selectedTextId, document.getElementById(selectedTextId));
+    }
+  }
+});
+
+// ============================================================
+// VISUAL EFFECTS ENGINE
+// ============================================================
+function triggerEffect(effectName) {
+  if (!effectName) return;
+  const target = document.getElementById('play-card-container') || document.getElementById('card-container');
+  if (!target) return;
+  // Remove any running effect classes first
+  target.classList.remove('effect-shake','effect-negative','effect-flash','effect-wobble');
+  // Force reflow to restart animation
+  void target.offsetWidth;
+  target.classList.add('effect-' + effectName);
+  target.addEventListener('animationend', () => {
+    target.classList.remove('effect-' + effectName);
+  }, { once: true });
+}
+
+// ============================================================
+// SOUND ENGINE (Web Audio API)
+// ============================================================
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(name) {
+  // Custom uploaded sound
+  if (name && customSounds[name]) {
+    try {
+      const audio = new Audio(customSounds[name].dataUrl);
+      audio.play().catch(() => {});
+    } catch(e) {}
+    return;
+  }
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+
+    const sounds = {
+      click: () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(1200, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.start(now); osc.stop(now + 0.1);
+      },
+      beep: () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+      },
+      chime: () => {
+        [523, 659, 784, 1047].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, now + i * 0.15);
+          gain.gain.linearRampToValueAtTime(0.25, now + i * 0.15 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.6);
+          osc.start(now + i * 0.15); osc.stop(now + i * 0.15 + 0.7);
+        });
+      },
+      whoosh: () => {
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+        const src = ctx.createBufferSource();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+        src.buffer = buf;
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(4000, now);
+        filter.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+        src.start(now); src.stop(now + 0.35);
+      },
+      drum: () => {
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const src = ctx.createBufferSource();
+        const osc = ctx.createOscillator();
+        const gainN = ctx.createGain(), gainO = ctx.createGain();
+        src.buffer = buf;
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+        gainN.gain.setValueAtTime(0.8, now);
+        gainN.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        gainO.gain.setValueAtTime(0.8, now);
+        gainO.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        src.connect(gainN); gainN.connect(ctx.destination);
+        osc.connect(gainO); gainO.connect(ctx.destination);
+        src.start(now); src.stop(now + 0.2);
+        osc.start(now); osc.stop(now + 0.15);
+      },
+      glass: () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2000, now);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        osc.start(now); osc.stop(now + 1.3);
+      }
+    };
+
+    if (sounds[name]) sounds[name]();
+  } catch(e) {}
+}
+
+// ============================================================
+// PLAY MODE
+// ============================================================
+let playCardIdx = 0;
+const playCanvas = document.getElementById('play-canvas');
+const playCtx = playCanvas.getContext('2d');
+const playButtons = document.getElementById('play-buttons');
+
+async function enterPlayMode() {
+  saveCurrentCardImage();
+  playCardIdx = currentCardIdx;
+  document.getElementById('play-overlay').classList.add('active');
+  await renderPlayCard(playCardIdx);
+}
+
+function exitPlayMode() {
+  document.getElementById('play-overlay').classList.remove('active');
+}
+
+async function renderPlayCard(idx) {
+  if (idx < 0 || idx >= stack.length) return;
+  playCardIdx = idx;
+  const card = stack[idx];
+  playCtx.fillStyle = '#fff';
+  playCtx.fillRect(0, 0, CARD_W, CARD_H);
+  if (card.imageData) {
+    await new Promise(res => {
+      const img = new Image();
+      img.onload = () => { playCtx.drawImage(img, 0, 0); res(); };
+      img.src = card.imageData;
+    });
+  }
+  playButtons.innerHTML = '';
+  // Render text objects in play mode
+  const playTextLayer = document.getElementById('play-text-layer');
+  if (playTextLayer) {
+    playTextLayer.innerHTML = '';
+    (card.textObjects || []).forEach(t => {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
+      el.style.width = t.w + 'px';
+      el.style.fontSize = t.fontSize + 'px';
+      el.style.fontFamily = t.fontFamily;
+      el.style.color = t.color;
+      el.style.whiteSpace = 'pre-wrap';
+      el.style.wordBreak = 'break-word';
+      el.style.lineHeight = '1.25';
+      el.style.pointerEvents = 'none';
+      el.textContent = t.content;
+      playTextLayer.appendChild(el);
+    });
+  }
+  card.buttons.forEach(btn => {
+    const el = document.createElement('div');
+    el.className = 'hc-button';
+    el.textContent = btn.label;
+    el.style.left = btn.x + 'px';
+    el.style.top = btn.y + 'px';
+    el.style.width = btn.w + 'px';
+    el.style.height = btn.h + 'px';
+    el.style.pointerEvents = 'all';
+    el.style.cursor = 'pointer';
+    if (btn.invisible) {
+      el.style.background = 'transparent';
+      el.style.border = 'none';
+      el.style.color = 'transparent';
+    }
+    el.addEventListener('click', () => {
+      if (btn.sound) playSound(btn.sound);
+      if (btn.effect) triggerEffect(btn.effect);
+      if (btn.goto > 0 && btn.goto <= stack.length) {
+        renderPlayCard(btn.goto - 1);
+      }
+    });
+    playButtons.appendChild(el);
+  });
+}
+
+// ============================================================
+// PROJECT NAME
+// ============================================================
+function updateProjectNameDisplay() {
+  const display = document.getElementById('project-name-display');
+  if (display) display.textContent = projectName;
+  document.title = projectName + ' — HyperWeb';
+}
+
+function startEditProjectName() {
+  const display = document.getElementById('project-name-display');
+  const input = document.getElementById('project-name-input');
+  if (!display || !input) return;
+  input.value = projectName;
+  display.classList.add('hidden');
+  input.classList.add('editing');
+  input.focus();
+  input.select();
+}
+
+function commitProjectName() {
+  const display = document.getElementById('project-name-display');
+  const input = document.getElementById('project-name-input');
+  if (!display || !input) return;
+  const val = input.value.trim();
+  if (val) projectName = val;
+  input.classList.remove('editing');
+  display.classList.remove('hidden');
+  updateProjectNameDisplay();
+}
+
+function projectNameKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); commitProjectName(); }
+  if (e.key === 'Escape') {
+    const display = document.getElementById('project-name-display');
+    const input = document.getElementById('project-name-input');
+    input.classList.remove('editing');
+    display.classList.remove('hidden');
+  }
+}
+
+function safeFilename(name) {
+  return name.replace(/[^a-z0-9_\-. ]/gi, '_').trim() || 'untitled';
+}
+
+// ============================================================
+// SAVE / LOAD
+// ============================================================
+function saveStack() {
+  saveCurrentCardImage();
+  const data = {
+    version: 2,
+    projectName,
+    customSounds,
+    stack: stack.map(card => ({
+      id: card.id,
+      name: card.name,
+      imageData: card.imageData,
+      textObjects: card.textObjects || [],
+      buttons: card.buttons
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = safeFilename(projectName) + '.hweb';
+  a.click();
+}
+
+async function loadStackFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid');
+    // Restore project name
+    if (data.projectName) {
+      projectName = data.projectName;
+      updateProjectNameDisplay();
+    }
+    // Restore custom sounds if present
+    if (data.customSounds) {
+      Object.assign(customSounds, data.customSounds);
+    }
+    stack = data.stack.map(card => ({
+      id: card.id || Date.now(),
+      name: card.name || 'Card',
+      imageData: card.imageData || null,
+      textObjects: card.textObjects || [],
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', ...b }))
+    }));
+    currentCardIdx = 0;
+    await loadCardImage(stack[0]);
+    renderButtonsLayer();
+    renderTextLayer();
+    rebuildStrip();
+    updateStatus();
+  } catch(err) {
+    alert('Could not load stack file: ' + err.message);
+  }
+  e.target.value = '';
+}
+
+function newStack() {
+  if (!confirm('Start a new stack? Unsaved work will be lost.')) return;
+  stack = [];
+  currentCardIdx = 0;
+  projectName = 'Untitled Stack';
+  updateProjectNameDisplay();
+  addCard(true);
+}
+
+// ============================================================
+// BROWSER STORAGE (localStorage)
+// ============================================================
+const BROWSER_KEY_PREFIX = 'hyperweb_stack__';
+
+function browserStorageAvailable() {
+  try { localStorage.setItem('__hwtest', '1'); localStorage.removeItem('__hwtest'); return true; }
+  catch(e) { return false; }
+}
+
+function getBrowserStackKeys() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(BROWSER_KEY_PREFIX)) keys.push(k);
+  }
+  return keys.sort();
+}
+
+function estimateBrowserUsageBytes() {
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    const v = localStorage.getItem(k);
+    total += (k.length + (v ? v.length : 0)) * 2; // JS strings are UTF-16
+  }
+  return total;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function saveToBrowser() {
+  if (!browserStorageAvailable()) {
+    alert('Browser storage is not available (private browsing mode or storage disabled).');
+    return;
+  }
+  saveCurrentCardImage();
+  const data = {
+    version: 2,
+    projectName,
+    savedAt: new Date().toISOString(),
+    customSounds,
+    stack: stack.map(card => ({
+      id: card.id, name: card.name, imageData: card.imageData, buttons: card.buttons
+    }))
+  };
+  const json = JSON.stringify(data);
+  const sizeBytes = json.length * 2;
+  const sizeMB = sizeBytes / 1024 / 1024;
+
+  // Warn if large
+  if (sizeMB > 3) {
+    const ok = confirm(
+      `This stack is ${sizeMB.toFixed(1)} MB. Browser storage is typically limited to ~5 MB total across all stacks.\n\nSave anyway?`
+    );
+    if (!ok) return;
+  }
+
+  const key = BROWSER_KEY_PREFIX + safeFilename(projectName) + '__' + Date.now();
+  // Check if a stack with this project name already exists and overwrite it
+  const existing = getBrowserStackKeys().find(k => {
+    try { return JSON.parse(localStorage.getItem(k)).projectName === projectName; } catch(e) { return false; }
+  });
+
+  try {
+    if (existing) {
+      localStorage.setItem(existing, json);
+    } else {
+      localStorage.setItem(key, json);
+    }
+    const used = formatBytes(estimateBrowserUsageBytes());
+    alert(`"${projectName}" saved to browser storage.\nTotal browser storage used: ${used}`);
+  } catch(e) {
+    if (e.name === 'QuotaExceededError') {
+      alert('Browser storage is full! Please delete some stacks or save to disk instead.');
+    } else {
+      alert('Could not save to browser storage: ' + e.message);
+    }
+  }
+}
+
+let selectedBrowserKey = null;
+
+function openBrowserLoadDialog() {
+  if (!browserStorageAvailable()) {
+    alert('Browser storage is not available (private browsing mode or storage disabled).');
+    return;
+  }
+  selectedBrowserKey = null;
+  renderBrowserStackList();
+  openDialog('browser-load-dialog');
+}
+
+function renderBrowserStackList() {
+  const list = document.getElementById('browser-stack-list');
+  const usedEl = document.getElementById('browser-storage-used');
+  const loadBtn = document.getElementById('browser-load-btn');
+  const keys = getBrowserStackKeys();
+
+  const usedBytes = estimateBrowserUsageBytes();
+  if (usedEl) usedEl.textContent = formatBytes(usedBytes);
+
+  list.innerHTML = '';
+  if (keys.length === 0) {
+    list.innerHTML = '<div class="browser-empty">No stacks saved in browser storage yet.</div>';
+    if (loadBtn) loadBtn.disabled = true;
+    return;
+  }
+
+  keys.forEach(key => {
+    let data;
+    try { data = JSON.parse(localStorage.getItem(key)); } catch(e) { return; }
+    const name = data.projectName || 'Unnamed Stack';
+    const cardCount = data.stack ? data.stack.length : '?';
+    const savedAt = data.savedAt ? new Date(data.savedAt).toLocaleString() : 'unknown date';
+    const rawSize = (localStorage.getItem(key) || '').length * 2;
+
+    const item = document.createElement('div');
+    item.className = 'browser-stack-item';
+    item.dataset.key = key;
+    item.innerHTML = `
+      <div class="bsi-name">${name.replace(/</g,'&lt;')}</div>
+      <div class="bsi-meta">${cardCount} card${cardCount !== 1 ? 's' : ''} · ${formatBytes(rawSize)} · ${savedAt}</div>
+      <button class="bsi-del" title="Delete from browser" onclick="deleteBrowserStack(event, '${key}')">✕</button>
+    `;
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('bsi-del')) return;
+      selectedBrowserKey = key;
+      list.querySelectorAll('.browser-stack-item').forEach(el => el.classList.remove('selected'));
+      item.classList.add('selected');
+      if (loadBtn) loadBtn.disabled = false;
+    });
+    list.appendChild(item);
+  });
+
+  if (loadBtn) loadBtn.disabled = true; // reset selection
+}
+
+function deleteBrowserStack(e, key) {
+  e.stopPropagation();
+  let name = key;
+  try { name = JSON.parse(localStorage.getItem(key)).projectName || key; } catch(err) {}
+  if (!confirm(`Delete "${name}" from browser storage?`)) return;
+  localStorage.removeItem(key);
+  if (selectedBrowserKey === key) selectedBrowserKey = null;
+  renderBrowserStackList();
+}
+
+async function loadFromBrowserSelected() {
+  if (!selectedBrowserKey) return;
+  const json = localStorage.getItem(selectedBrowserKey);
+  if (!json) { alert('Stack not found in browser storage.'); return; }
+  if (!confirm('Load this stack? Unsaved changes to the current stack will be lost.')) return;
+  try {
+    const data = JSON.parse(json);
+    if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid stack data');
+    if (data.projectName) { projectName = data.projectName; updateProjectNameDisplay(); }
+    if (data.customSounds) Object.assign(customSounds, data.customSounds);
+    stack = data.stack.map(card => ({
+      id: card.id || Date.now(),
+      name: card.name || 'Card',
+      imageData: card.imageData || null,
+      textObjects: card.textObjects || [],
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', ...b }))
+    }));
+    currentCardIdx = 0;
+    await loadCardImage(stack[0]);
+    renderButtonsLayer();
+    renderTextLayer();
+    rebuildStrip();
+    updateStatus();
+    closeDialog('browser-load-dialog');
+  } catch(err) {
+    alert('Could not load stack: ' + err.message);
+  }
+}
+
+// ============================================================
+// EXPORT AS STANDALONE HTML
+// ============================================================
+function exportStack() {
+  saveCurrentCardImage();
+  const exportCustomSounds = JSON.stringify(customSounds);
+  const stackData = JSON.stringify(stack.map(c => ({
+    name: c.name, imageData: c.imageData,
+    textObjects: c.textObjects || [],
+    buttons: c.buttons
+  })));
+  const escapedTitle = projectName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${escapedTitle}</title>
+<style>
+body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;font-family:monospace}
+#container{position:relative;width:1063px;height:797px;max-width:100vw;max-height:100vh}
+canvas{display:block;width:100%;height:100%}
+#txtlayer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.hc-text{position:absolute;white-space:pre-wrap;word-break:break-word;line-height:1.25;pointer-events:none}
+.hc-button{position:absolute;background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;font-family:monospace;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center}
+.hc-button:active{border-top:2px solid #404040;border-left:2px solid #404040;border-bottom:2px solid #dfdfdf;border-right:2px solid #dfdfdf}
+.hc-button.invisible{background:transparent!important;border:none!important;color:transparent!important}
+@keyframes cardShake{0%{transform:translate(0,0) rotate(0deg)}10%{transform:translate(-6px,-4px) rotate(-1.5deg)}20%{transform:translate(7px,3px) rotate(1deg)}30%{transform:translate(-5px,5px) rotate(-0.8deg)}40%{transform:translate(6px,-3px) rotate(1.2deg)}50%{transform:translate(-4px,4px) rotate(-1deg)}60%{transform:translate(5px,-2px) rotate(0.6deg)}70%{transform:translate(-3px,3px) rotate(-0.5deg)}80%{transform:translate(3px,-2px) rotate(0.3deg)}90%{transform:translate(-2px,1px) rotate(-0.2deg)}100%{transform:translate(0,0) rotate(0deg)}}
+@keyframes cardNeg{0%,49%{filter:invert(1) hue-rotate(180deg)}50%,100%{filter:none}}
+@keyframes cardFlash{0%,100%{filter:none}20%,60%{filter:brightness(3)}40%,80%{filter:none}}
+@keyframes cardWobble{0%,100%{transform:scaleX(1) scaleY(1)}20%{transform:scaleX(1.04) scaleY(0.96)}40%{transform:scaleX(0.96) scaleY(1.04)}60%{transform:scaleX(1.03) scaleY(0.97)}80%{transform:scaleX(0.98) scaleY(1.02)}}
+.fx-shake{animation:cardShake 0.5s ease-in-out}
+.fx-negative{animation:cardNeg 0.6s steps(1)}
+.fx-flash{animation:cardFlash 0.5s ease-in-out}
+.fx-wobble{animation:cardWobble 0.5s ease-in-out}
+</style></head><body>
+<div id="container">
+  <canvas id="c" width="1063" height="797"></canvas>
+  <div id="txtlayer"></div>
+  <div id="btns" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
+</div>
+<script>
+const stack=${stackData};
+const customSounds=${exportCustomSounds};
+let idx=0;
+const ctx=document.getElementById('c').getContext('2d');
+const btns=document.getElementById('btns');
+const txtlayer=document.getElementById('txtlayer');
+const container=document.getElementById('container');
+let ac=null;
+function getAC(){if(!ac)ac=new AudioContext();return ac;}
+function playSound(n){
+  if(n&&customSounds[n]){try{new Audio(customSounds[n].dataUrl).play();}catch(e){}return;}
+  try{const c=getAC(),now=c.currentTime;
+  const s={click:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(1200,now);o.frequency.exponentialRampToValueAtTime(400,now+.08);g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+.08);o.start(now);o.stop(now+.1);},beep:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='square';o.frequency.value=880;g.gain.setValueAtTime(.2,now);g.gain.exponentialRampToValueAtTime(.001,now+.2);o.start(now);o.stop(now+.2);},chime:()=>{[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;g.gain.setValueAtTime(0,now+i*.15);g.gain.linearRampToValueAtTime(.25,now+i*.15+.03);g.gain.exponentialRampToValueAtTime(.001,now+i*.15+.6);o.start(now+i*.15);o.stop(now+i*.15+.7);});},whoosh:()=>{const b=c.createBuffer(1,c.sampleRate*.3,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s2.buffer=b;f.type='bandpass';f.frequency.setValueAtTime(4000,now);f.frequency.exponentialRampToValueAtTime(200,now+.3);g.gain.setValueAtTime(.4,now);g.gain.exponentialRampToValueAtTime(.001,now+.3);s2.connect(f);f.connect(g);g.connect(c.destination);s2.start(now);s2.stop(now+.35);},drum:()=>{const b=c.createBuffer(1,c.sampleRate*.2,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),o=c.createOscillator(),gn=c.createGain(),go=c.createGain();s2.buffer=b;o.frequency.setValueAtTime(150,now);o.frequency.exponentialRampToValueAtTime(50,now+.1);gn.gain.setValueAtTime(.8,now);gn.gain.exponentialRampToValueAtTime(.001,now+.15);go.gain.setValueAtTime(.8,now);go.gain.exponentialRampToValueAtTime(.001,now+.12);s2.connect(gn);gn.connect(c.destination);o.connect(go);go.connect(c.destination);s2.start(now);s2.stop(now+.2);o.start(now);o.stop(now+.15);},glass:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=2000;g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+1.2);o.start(now);o.stop(now+1.3);}};
+  if(s[n])s[n]();}catch(e){}}
+function triggerFX(name){
+  if(!name)return;
+  const cls='fx-'+name;
+  container.classList.remove('fx-shake','fx-negative','fx-flash','fx-wobble');
+  void container.offsetWidth;
+  container.classList.add(cls);
+  container.addEventListener('animationend',()=>container.classList.remove(cls),{once:true});
+}
+function show(i){
+  if(i<0||i>=stack.length)return;
+  idx=i;const card=stack[i];
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,1063,797);
+  btns.innerHTML='';txtlayer.innerHTML='';
+  if(card.imageData){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0);img.src=card.imageData;}
+  (card.textObjects||[]).forEach(t=>{
+    const el=document.createElement('div');
+    el.className='hc-text';
+    el.style.left=t.x+'px';el.style.top=t.y+'px';
+    el.style.width=t.w+'px';el.style.fontSize=t.fontSize+'px';
+    el.style.fontFamily=t.fontFamily;el.style.color=t.color;
+    el.textContent=t.content;
+    txtlayer.appendChild(el);
+  });
+  card.buttons.forEach(btn=>{
+    const el=document.createElement('div');
+    el.className='hc-button'+(btn.invisible?' invisible':'');
+    el.textContent=btn.label;
+    el.style.left=btn.x+'px';el.style.top=btn.y+'px';
+    el.style.width=btn.w+'px';el.style.height=btn.h+'px';
+    el.addEventListener('click',()=>{
+      if(btn.sound)playSound(btn.sound);
+      if(btn.effect)triggerFX(btn.effect);
+      if(btn.goto>0&&btn.goto<=stack.length)show(btn.goto-1);
+    });
+    btns.appendChild(el);
+  });
+}
+show(0);
+<\/script></body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = safeFilename(projectName) + '.html';
+  a.click();
+}
+
+// ============================================================
+// DIALOGS
+// ============================================================
+function openDialog(id) {
+  document.getElementById(id).classList.add('active');
+}
+function closeDialog(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+// Close dialog on backdrop click
+document.querySelectorAll('.dialog-backdrop').forEach(backdrop => {
+  backdrop.addEventListener('click', e => {
+    if (e.target === backdrop) backdrop.classList.remove('active');
+  });
+});
+
+// ============================================================
+// STATUS
+// ============================================================
+function updateStatus() {
+  document.getElementById('status-card').textContent = `${currentCardIdx+1}/${stack.length}`;
+}
+
+// ============================================================
+// KEYBOARD SHORTCUTS
+// ============================================================
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  // Don't intercept when editing a text object
+  if (currentlyEditingTextId) return;
+  const key = e.key;
+
+  // Undo / Redo
+  if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && (key === 'y' || key === 'Z')) { e.preventDefault(); redo(); return; }
+
+  if (key === 'ArrowRight' || key === 'ArrowDown') { e.preventDefault(); goNext(); }
+  if (key === 'ArrowLeft' || key === 'ArrowUp') { e.preventDefault(); goPrev(); }
+  if (key === 'p' || key === 'P') setTool('pencil');
+  if (key === 'e' || key === 'E') setTool('eraser');
+  if (key === 'r' || key === 'R') setTool('rect');
+  if (key === 'c' || key === 'C') setTool('circle');
+  if (key === 't' || key === 'T') setTool('text');
+  if (key === 'Escape') {
+    exitPlayMode();
+    deselectButton();
+    deselectText();
+    closeColorDropdowns();
+    closeDialog('btn-dialog');
+    closeDialog('rename-dialog');
+  }
+  if (key === 'Delete' || key === 'Backspace') {
+    if (selectedTextId && !currentlyEditingTextId) {
+      deleteSelectedText();
+    } else if (focusedButtonId) {
+      pushUndoState();
+      stack[currentCardIdx].buttons = stack[currentCardIdx].buttons.filter(b => b.id !== focusedButtonId);
+      focusedButtonId = null;
+      renderButtonsLayer();
+      updateThumb(currentCardIdx);
+    }
+  }
+});
+
+// ============================================================
+// MENU CLICK-TO-OPEN (fixes invisible dropdown text bug)
+// ============================================================
+(function() {
+  const menuItems = document.querySelectorAll('#menubar .menu-item[data-menu]');
+  let openMenu = null;
+
+  function closeAll() {
+    menuItems.forEach(m => m.classList.remove('menu-open'));
+    openMenu = null;
+  }
+
+  menuItems.forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      if (openMenu === item) {
+        closeAll();
+      } else {
+        closeAll();
+        item.classList.add('menu-open');
+        openMenu = item;
+      }
+    });
+    // Also open on hover if any menu is already open (classic menu bar behaviour)
+    item.addEventListener('mouseenter', () => {
+      if (openMenu && openMenu !== item) {
+        closeAll();
+        item.classList.add('menu-open');
+        openMenu = item;
+      }
+    });
+  });
+
+  document.addEventListener('mousedown', () => closeAll());
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+})();
+
+// ============================================================
+// START
+// ============================================================
+init();
+rebuildStrip();
+updateStatus();
+updateUndoMenuItems();
+updateProjectNameDisplay();
+buildPalette('stroke-palette', 'stroke');
+buildPalette('fill-palette', 'fill');
+textLayer = document.getElementById('text-layer');
+renderTextLayer();
+</script>
+</body>
+</html>
