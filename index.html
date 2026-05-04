@@ -304,7 +304,14 @@
     border-right: 2px solid var(--highlight);
   }
 
-  #stroke-color { background: #000; }
+  #stroke-color { background: #000; position: relative; }
+  #stroke-color.none-fill { background: transparent !important; }
+  #stroke-color.none-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to top right, transparent calc(50% - 1px), red, transparent calc(50% + 1px));
+  }
   #fill-color { background: transparent; position: relative; }
   #fill-color.none-fill::after {
     content: '';
@@ -366,6 +373,25 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  .card-thumb-del {
+    position: absolute; top: 2px; right: 2px;
+    width: 14px; height: 14px;
+    background: var(--btn-face);
+    border-top: 1px solid var(--highlight);
+    border-left: 1px solid var(--highlight);
+    border-bottom: 1px solid var(--shadow);
+    border-right: 1px solid var(--shadow);
+    font-size: 9px; line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #880000;
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: all;
+    z-index: 5;
+  }
+  .card-thumb:hover .card-thumb-del { opacity: 1; }
+  .card-thumb-del:hover { color: #ff0000; background: #ffe0e0; }
 
   #add-card-btn {
     width: 96px; height: 28px;
@@ -390,8 +416,9 @@
   #canvas-area {
     flex: 1;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 20px;
     background: repeating-conic-gradient(#b0b0b0 0% 25%, #c8c8c8 0% 50%) 0 0 / 16px 16px;
     overflow: hidden;
     position: relative;
@@ -771,16 +798,16 @@
 
 <!-- TOOLBAR -->
 <div id="toolbar">
-  <button class="tool-btn active" id="tool-pointer" data-tip="Pointer/Select" onclick="setTool('pointer')">⬡</button>
-  <button class="tool-btn" id="tool-pencil" data-tip="Pencil" onclick="setTool('pencil')">✏️</button>
-  <button class="tool-btn" id="tool-eraser" data-tip="Eraser" onclick="setTool('eraser')">⬜</button>
-  <button class="tool-btn" id="tool-rect" data-tip="Rectangle" onclick="setTool('rect')">▭</button>
-  <button class="tool-btn" id="tool-circle" data-tip="Ellipse" onclick="setTool('circle')">◯</button>
-  <button class="tool-btn" id="tool-fill" data-tip="Fill (rectangle interior)" onclick="setTool('fill')">▬</button>
-  <button class="tool-btn" id="tool-bucket" data-tip="Paint Bucket — flood fill" onclick="setTool('bucket')" style="font-size:14px">🪣</button>
-  <button class="tool-btn" id="tool-lasso" data-tip="Filled Shape Pencil — draw outline, fills inside" onclick="setTool('lasso')" style="font-size:14px">⬟</button>
-  <button class="tool-btn" id="tool-polygon" data-tip="Polygon — click vertices, double-click or close to finish" onclick="setTool('polygon')" style="font-size:13px">⬠</button>
-  <button class="tool-btn" id="tool-text" data-tip="Text Tool — click to place editable text" onclick="setTool('text')" style="font-size:15px;font-weight:bold;font-family:serif">T</button>
+  <button class="tool-btn active" id="tool-pointer" data-tip="Pointer/Select [V]" onclick="setTool('pointer')" style="font-size:17px">☞</button>
+  <button class="tool-btn" id="tool-pencil" data-tip="Pencil [P]" onclick="setTool('pencil')">✏️</button>
+  <button class="tool-btn" id="tool-eraser" data-tip="Eraser [E]" onclick="setTool('eraser')">⬜</button>
+  <button class="tool-btn" id="tool-rect" data-tip="Rectangle [R]" onclick="setTool('rect')">▭</button>
+  <button class="tool-btn" id="tool-circle" data-tip="Ellipse [C]" onclick="setTool('circle')">◯</button>
+  <button class="tool-btn" id="tool-fill" data-tip="Fill (rectangle interior) [F]" onclick="setTool('fill')">▬</button>
+  <button class="tool-btn" id="tool-bucket" data-tip="Paint Bucket — flood fill [B]" onclick="setTool('bucket')" style="font-size:14px">🪣</button>
+  <button class="tool-btn" id="tool-lasso" data-tip="Filled Shape Pencil — draw outline, fills inside [L]" onclick="setTool('lasso')" style="font-size:16px">💊</button>
+  <button class="tool-btn" id="tool-polygon" data-tip="Polygon — click vertices, double-click or close to finish [G]" onclick="setTool('polygon')" style="font-size:13px">⬠</button>
+  <button class="tool-btn" id="tool-text" data-tip="Text Tool — click to place editable text [T]" onclick="setTool('text')" style="font-size:15px;font-weight:bold;font-family:serif">T</button>
   <div class="tool-sep"></div>
   <button class="tool-btn" id="tool-button" data-tip="Add Button" onclick="addButtonToCard()">⬭</button>
   <div class="tool-sep"></div>
@@ -798,6 +825,7 @@
         <label>Custom:</label>
         <input type="color" id="stroke-custom-picker" value="#000000" oninput="applyStrokeColor(this.value)">
       </div>
+      <button class="no-fill-btn" onclick="setNoStroke()">⊘ No Stroke</button>
     </div>
   </div>
 
@@ -1187,8 +1215,12 @@ async function addCard(silent) {
 }
 
 function deleteCurrentCard() {
+  deleteCard(currentCardIdx);
+}
+
+function deleteCard(idx) {
   if (stack.length <= 1) { alert('Cannot delete the only card!'); return; }
-  stack.splice(currentCardIdx, 1);
+  stack.splice(idx, 1);
   currentCardIdx = Math.min(currentCardIdx, stack.length - 1);
   loadCardImage(stack[currentCardIdx]).then(() => {
     renderButtonsLayer();
@@ -1244,6 +1276,13 @@ function rebuildStrip() {
     lbl.className = 'card-thumb-label';
     lbl.textContent = card.name;
     div.appendChild(lbl);
+
+    const del = document.createElement('button');
+    del.className = 'card-thumb-del';
+    del.title = 'Delete card';
+    del.textContent = '✕';
+    del.onclick = (e) => { e.stopPropagation(); deleteCard(i); };
+    div.appendChild(del);
 
     cardStrip.insertBefore(div, addBtn);
     drawThumb(cnv, card, i);
@@ -1411,6 +1450,7 @@ function moveDraw(e, clamp) {
   const p = getPos(e, clamp);
 
   if (currentTool === 'pencil') {
+    if (!strokeColor) return;
     drawCtx.globalCompositeOperation = 'source-over';
     drawCtx.strokeStyle = strokeColor;
     drawCtx.lineWidth = brushSize;
@@ -1480,12 +1520,12 @@ function drawShape(ctx, a, b) {
 
   if (currentTool === 'rect') {
     if (fillColor) ctx.fillRect(x, y, w, h);
-    ctx.strokeRect(x, y, w, h);
+    if (strokeColor) ctx.strokeRect(x, y, w, h);
   } else if (currentTool === 'circle') {
     ctx.beginPath();
     ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
     if (fillColor) ctx.fill();
-    ctx.stroke();
+    if (strokeColor) ctx.stroke();
   }
 }
 
@@ -1496,55 +1536,54 @@ function drawLassoPreview() {
   if (lassoPoints.length < 2) return;
   const ctx = drawCtx;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = brushSize;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Draw the freehand stroke so far
-  ctx.beginPath();
-  ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
-  for (let i = 1; i < lassoPoints.length; i++) {
-    ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
-  }
-  ctx.stroke();
+  if (strokeColor) {
+    ctx.strokeStyle = strokeColor;
+    ctx.beginPath();
+    ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+    for (let i = 1; i < lassoPoints.length; i++) {
+      ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+    }
+    ctx.stroke();
 
-  // Draw a dashed closing line preview back to start
-  ctx.save();
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = strokeColor;
-  ctx.beginPath();
-  ctx.moveTo(lassoPoints[lassoPoints.length - 1].x, lassoPoints[lassoPoints.length - 1].y);
-  ctx.lineTo(lassoPoints[0].x, lassoPoints[0].y);
-  ctx.stroke();
-  ctx.restore();
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = strokeColor;
+    ctx.beginPath();
+    ctx.moveTo(lassoPoints[lassoPoints.length - 1].x, lassoPoints[lassoPoints.length - 1].y);
+    ctx.lineTo(lassoPoints[0].x, lassoPoints[0].y);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawLassoFinal() {
   if (lassoPoints.length < 2) return;
   const ctx = drawCtx;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = brushSize;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Build the closed path
   ctx.beginPath();
   ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
   for (let i = 1; i < lassoPoints.length; i++) {
     ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
   }
-  ctx.closePath(); // draws the straight closing line back to start
+  ctx.closePath();
 
-  // Fill interior first (so stroke sits on top)
-  const fc = fillColor || null;
-  if (fc) {
-    ctx.fillStyle = fc;
+  if (fillColor) {
+    ctx.fillStyle = fillColor;
     ctx.fill();
   }
-  ctx.stroke();
+  if (strokeColor) {
+    ctx.strokeStyle = strokeColor;
+    ctx.stroke();
+  }
 }
 
 // ============================================================
@@ -1596,34 +1635,37 @@ function drawPolyPreview(cursorPt, snapping) {
   ctx.globalAlpha = 1;
 
   // Draw committed segments
-  ctx.beginPath();
-  ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
-  for (let i = 1; i < polyPoints.length; i++) {
-    ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
-  }
-  ctx.stroke();
+  if (strokeColor) {
+    ctx.beginPath();
+    ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+    for (let i = 1; i < polyPoints.length; i++) {
+      ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+    }
+    ctx.stroke();
 
-  // Draw preview segment to cursor (dashed)
-  ctx.save();
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = Math.max(1, brushSize);
-  ctx.strokeStyle = strokeColor;
-  ctx.globalAlpha = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(polyPoints[polyPoints.length - 1].x, polyPoints[polyPoints.length - 1].y);
-  if (snapping) {
-    ctx.lineTo(polyPoints[0].x, polyPoints[0].y);
-  } else {
-    ctx.lineTo(cursorPt.x, cursorPt.y);
+    // Draw preview segment to cursor (dashed)
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = Math.max(1, brushSize);
+    ctx.strokeStyle = strokeColor;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(polyPoints[polyPoints.length - 1].x, polyPoints[polyPoints.length - 1].y);
+    if (snapping) {
+      ctx.lineTo(polyPoints[0].x, polyPoints[0].y);
+    } else {
+      ctx.lineTo(cursorPt.x, cursorPt.y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
-  ctx.stroke();
-  ctx.restore();
 
-  // Draw vertex dots
+  // Draw vertex dots (use fillColor or a default grey when no stroke)
+  const dotColor = strokeColor || fillColor || '#888888';
   polyPoints.forEach((pt, i) => {
     ctx.beginPath();
     ctx.arc(pt.x, pt.y, Math.max(3, brushSize * 0.8), 0, Math.PI * 2);
-    ctx.fillStyle = strokeColor;
+    ctx.fillStyle = dotColor;
     ctx.fill();
   });
 
@@ -1655,7 +1697,6 @@ function polyCommit() {
   clearUiCanvas();
   const ctx = drawCtx;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = strokeColor;
   ctx.lineWidth = Math.max(1, brushSize);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -1669,7 +1710,10 @@ function polyCommit() {
     ctx.fillStyle = fillColor;
     ctx.fill();
   }
-  ctx.stroke();
+  if (strokeColor) {
+    ctx.strokeStyle = strokeColor;
+    ctx.stroke();
+  }
   polyPoints = [];
   polyActive = false;
   saveCurrentCardImage();
@@ -1871,6 +1915,15 @@ function applyStrokeColor(v) {
   sw.classList.remove('none-fill');
   const cp = document.getElementById('stroke-custom-picker');
   if (cp) cp.value = v;
+  updatePaletteSelection('stroke');
+}
+
+function setNoStroke() {
+  strokeColor = null;
+  const sw = document.getElementById('stroke-color');
+  sw.style.background = 'transparent';
+  sw.classList.add('none-fill');
+  closeColorDropdowns();
   updatePaletteSelection('stroke');
 }
 
@@ -2994,10 +3047,15 @@ document.addEventListener('keydown', e => {
 
   if (key === 'ArrowRight' || key === 'ArrowDown') { e.preventDefault(); goNext(); }
   if (key === 'ArrowLeft' || key === 'ArrowUp') { e.preventDefault(); goPrev(); }
+  if (key === 'v' || key === 'V') setTool('pointer');
   if (key === 'p' || key === 'P') setTool('pencil');
   if (key === 'e' || key === 'E') setTool('eraser');
   if (key === 'r' || key === 'R') setTool('rect');
   if (key === 'c' || key === 'C') setTool('circle');
+  if (key === 'f' || key === 'F') setTool('fill');
+  if (key === 'b' || key === 'B') setTool('bucket');
+  if (key === 'l' || key === 'L') setTool('lasso');
+  if (key === 'g' || key === 'G') setTool('polygon');
   if (key === 't' || key === 'T') setTool('text');
   if (key === 'Escape') {
     exitPlayMode();
