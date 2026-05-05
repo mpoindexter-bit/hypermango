@@ -739,6 +739,46 @@
   .effect-flash   { animation: cardFlash 0.5s ease-in-out; }
   .effect-wobble  { animation: cardWobble 0.5s ease-in-out; }
 
+  /* ===== SCRIPT BADGE ===== */
+  .btn-script-badge {
+    position: absolute;
+    top: 1px; right: 3px;
+    font-size: 8px;
+    opacity: 0.55;
+    pointer-events: none;
+    line-height: 1;
+    font-family: monospace;
+  }
+  .dialog-row textarea.script-area {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    height: 110px;
+  }
+
+  /* ===== CARD NAME INPUT ===== */
+  #card-name-input {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 20;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: #333;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(0, 0, 0, 0.22);
+    padding: 2px 7px;
+    width: 160px;
+    outline: none;
+    user-select: text;
+    pointer-events: all;
+  }
+  #card-name-input:focus {
+    background: rgba(255, 255, 255, 0.97);
+    border-color: var(--accent-light);
+    color: #000;
+    box-shadow: 0 0 0 1px var(--accent-light);
+  }
+
   /* ===== BROWSER STORAGE DIALOG ===== */
   .browser-stack-list {
     max-height: 260px;
@@ -772,6 +812,92 @@
     margin-bottom: 6px;
   }
   #browser-storage-bar span { color: var(--black); font-weight: bold; }
+
+  /* ===== SCRIPT CHEAT SHEET ===== */
+  #script-cheatsheet {
+    display: none;
+    position: fixed;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    z-index: 400;
+    width: 270px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    box-shadow: 3px 3px 0 var(--black);
+  }
+  #script-cheatsheet.visible { display: block; }
+  #script-cheatsheet-titlebar {
+    background: var(--accent);
+    color: var(--white);
+    font-size: 11px;
+    padding: 2px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  #script-cheatsheet-close {
+    background: none; border: none; color: var(--white);
+    cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1;
+  }
+  #script-cheatsheet-close:hover { color: #ffcccc; }
+  #script-cheatsheet-body {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cs-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--shadow);
+    border-bottom: 1px solid var(--darker);
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+  }
+  .cs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .cs-table td {
+    padding: 1px 0;
+    vertical-align: top;
+  }
+  .cs-table td:first-child {
+    color: var(--accent);
+    white-space: nowrap;
+    padding-right: 8px;
+    font-weight: bold;
+  }
+  .cs-table td:last-child {
+    color: var(--shadow);
+    font-size: 10px;
+  }
+  .cs-block {
+    background: var(--white);
+    border: 1px inset var(--bg);
+    padding: 4px 6px;
+    font-size: 10px;
+    line-height: 1.6;
+    white-space: pre;
+    color: #003;
+    overflow-x: auto;
+  }
+  .cs-note {
+    font-size: 10px;
+    color: var(--shadow);
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
@@ -799,6 +925,7 @@
       <div class="dropdown-item" onclick="deleteCurrentCard()">Delete Card</div>
       <div class="dropdown-sep"></div>
       <div class="dropdown-item" onclick="renameCard()">Rename Card…</div>
+      <div class="dropdown-item" onclick="openCardScriptDialog()">Edit Card Script…</div>
     </div>
   </div>
   <div class="menu-item" data-menu="go">Go
@@ -923,6 +1050,7 @@
       <canvas id="ui-canvas" width="1063" height="797"></canvas>
       <div id="text-layer"></div>
       <div id="buttons-layer" class="editor-mode"></div>
+      <input type="text" id="card-name-input" maxlength="40" spellcheck="false" value="card_a">
     </div>
   </div>
 </div>
@@ -933,6 +1061,94 @@
   <span>🔧 Tool: <b id="status-tool">pointer</b></span>
   <span>📐 Pos: <b id="status-pos">0, 0</b></span>
   <span style="margin-left:auto">HyperWeb Stack Author v1.0</span>
+  <button onclick="toggleCheatsheet()" id="cheatsheet-toggle-btn" style="margin-left:10px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">? Script Help</button>
+</div>
+
+<!-- SCRIPT CHEAT SHEET PANEL -->
+<div id="script-cheatsheet">
+  <div id="script-cheatsheet-titlebar">
+    <span>Script Command Reference</span>
+    <button id="script-cheatsheet-close" onclick="toggleCheatsheet()">✕</button>
+  </div>
+  <div id="script-cheatsheet-body">
+
+    <div>
+      <div class="cs-section-title">Navigation</div>
+      <table class="cs-table"><tbody>
+        <tr><td>go next</td><td>next card</td></tr>
+        <tr><td>go prev</td><td>previous card</td></tr>
+        <tr><td>go first</td><td>first card</td></tr>
+        <tr><td>go last</td><td>last card</td></tr>
+        <tr><td>go card &lt;name&gt;</td><td>card by name</td></tr>
+        <tr><td>go card &lt;n&gt;</td><td>card by number</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">go card card_b
+go card 3</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Sound</div>
+      <table class="cs-table"><tbody>
+        <tr><td>play sound &lt;name&gt;</td><td>play a sound</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">play sound click
+play sound beep
+play sound chime
+play sound whoosh
+play sound drum
+play sound glass</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Button Visibility</div>
+      <table class="cs-table"><tbody>
+        <tr><td>show button &lt;nameId&gt;</td><td>make visible</td></tr>
+        <tr><td>hide button &lt;nameId&gt;</td><td>make hidden</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">show button myRedBtn
+hide button myRedBtn</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Effects</div>
+      <table class="cs-table"><tbody>
+        <tr><td>trigger effect &lt;name&gt;</td><td>visual effect</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">trigger effect shake
+trigger effect flash
+trigger effect wobble
+trigger effect negative</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Control Flow</div>
+      <table class="cs-table"><tbody>
+        <tr><td>stop</td><td>halt script</td></tr>
+        <tr><td>-- text</td><td>comment line</td></tr>
+      </tbody></table>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Conditionals</div>
+      <div class="cs-note" style="margin-bottom:4px">Blocks end with <b>end</b>. Optional <b>else</b> branch.</div>
+      <div class="cs-block">if &lt;btnId&gt; is visible
+  play sound whoosh
+  hide button &lt;btnId&gt;
+else
+  play sound glass
+  show button &lt;btnId&gt;
+end
+
+if card is card_a
+  go next
+end
+
+if card is not card_z
+  go next
+end</div>
+    </div>
+
+  </div>
 </div>
 
 <!-- PLAY OVERLAY -->
@@ -954,11 +1170,15 @@
     </div>
     <div class="dialog-body">
       <div class="dialog-row">
+        <label>Button ID (used in scripts):</label>
+        <input type="text" id="btn-nameid" placeholder="button_1" maxlength="40">
+      </div>
+      <div class="dialog-row">
         <label>Button Label:</label>
         <input type="text" id="btn-label" placeholder="Click Me" maxlength="40">
       </div>
       <div class="dialog-row">
-        <label>Go to Card (card number, 0 = none):</label>
+        <label>Go to Card (card number, 0 = none — ignored when script is set):</label>
         <input type="number" id="btn-goto" min="0" value="0">
       </div>
       <div class="dialog-row">
@@ -997,6 +1217,10 @@
           <option value="wobble">🫧 Wobble — card squishes and stretches</option>
         </select>
       </div>
+      <div class="dialog-row">
+        <label>Script (runs on click; overrides Go To / Sound when non-empty):</label>
+        <textarea id="btn-script" class="script-area" spellcheck="false"></textarea>
+      </div>
     </div>
     <div class="dialog-footer">
       <button class="win-btn" onclick="deleteFocusedButton()">Delete</button>
@@ -1006,6 +1230,31 @@
   </div>
 </div>
 
+<!-- CARD SCRIPT DIALOG -->
+<div class="dialog-backdrop" id="card-script-dialog">
+  <div class="dialog" style="min-width:500px">
+    <div class="dialog-titlebar">
+      <span id="card-script-title">Card Script</span>
+      <button class="dialog-close" onclick="closeDialog('card-script-dialog')">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-row" style="margin-bottom:6px;font-size:10px;color:var(--shadow);line-height:1.5">
+        Runs when this card is entered in Play mode.<br>
+        Commands: <b>go next · go prev · go first · go last · go card &lt;name|num&gt;</b><br>
+        <b>play sound &lt;click|beep|chime|whoosh|drum|glass&gt; · show button &lt;id&gt; · hide button &lt;id&gt;</b><br>
+        <b>trigger effect &lt;shake|negative|flash|wobble&gt; · stop</b><br>
+        Condition: <b>if &lt;buttonId&gt; is [not] visible</b> … <b>end</b> &nbsp;|&nbsp; <b>if card is [not] &lt;name|num&gt;</b> … <b>end</b>
+      </div>
+      <div class="dialog-row">
+        <textarea id="card-script-input" class="script-area" style="height:160px" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="win-btn" onclick="closeDialog('card-script-dialog')">Cancel</button>
+      <button class="win-btn default" onclick="applyCardScript()">OK</button>
+    </div>
+  </div>
+</div>
 
 <!-- CARD RENAME DIALOG -->
 <div class="dialog-backdrop" id="rename-dialog">
@@ -1179,19 +1428,25 @@ const cardStrip = document.getElementById('card-strip');
 // ============================================================
 // CARD DATA MODEL
 // ============================================================
+function defaultCardName() {
+  // Generates card_a, card_b, ..., card_z, card_aa, card_ab, ...
+  let letters = '';
+  let n = stack.length; // cards already in stack = 0-based index of new card
+  do {
+    letters = String.fromCharCode(97 + (n % 26)) + letters;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return 'card_' + letters;
+}
+
 function createCard(name) {
-  const offscreen = document.createElement('canvas');
-  offscreen.width = CARD_W;
-  offscreen.height = CARD_H;
-  const ctx = offscreen.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, CARD_W, CARD_H);
   return {
     id: Date.now() + Math.random(),
-    name: name || `Card ${stack.length + 1}`,
-    imageData: null, // stored as data URL
+    name: name || defaultCardName(),
+    imageData: null,
     textObjects: [],
-    buttons: []
+    buttons: [],
+    script: ''
   };
 }
 
@@ -1223,6 +1478,11 @@ function init() {
 // ============================================================
 // NAVIGATION
 // ============================================================
+function updateCardNameInput() {
+  const input = document.getElementById('card-name-input');
+  if (input && stack[currentCardIdx]) input.value = stack[currentCardIdx].name;
+}
+
 async function switchToCard(idx) {
   if (idx < 0 || idx >= stack.length) return;
   saveCurrentCardImage();
@@ -1235,6 +1495,7 @@ async function switchToCard(idx) {
   updateStrip();
   updateStatus();
   updateUndoMenuItems();
+  updateCardNameInput();
 }
 
 function goFirst() { switchToCard(0); }
@@ -1255,6 +1516,7 @@ async function addCard(silent) {
   renderTextLayer();
   rebuildStrip();
   updateStatus();
+  updateCardNameInput();
 }
 
 function deleteCurrentCard() {
@@ -1269,6 +1531,7 @@ function deleteCard(idx) {
     renderButtonsLayer();
     rebuildStrip();
     updateStatus();
+    updateCardNameInput();
   });
 }
 
@@ -1281,14 +1544,22 @@ function clearCard() {
 }
 
 function renameCard() {
-  document.getElementById('rename-input').value = stack[currentCardIdx].name;
-  openDialog('rename-dialog');
+  const input = document.getElementById('card-name-input');
+  if (input) { input.focus(); input.select(); }
 }
 
-function applyRename() {
-  stack[currentCardIdx].name = document.getElementById('rename-input').value || stack[currentCardIdx].name;
-  closeDialog('rename-dialog');
-  rebuildStrip();
+function openCardScriptDialog() {
+  if (!stack[currentCardIdx]) return;
+  const card = stack[currentCardIdx];
+  document.getElementById('card-script-title').textContent = `Card Script — ${card.name}`;
+  document.getElementById('card-script-input').value = card.script || '';
+  openDialog('card-script-dialog');
+}
+
+function applyCardScript() {
+  if (!stack[currentCardIdx]) return;
+  stack[currentCardIdx].script = document.getElementById('card-script-input').value;
+  closeDialog('card-script-dialog');
 }
 
 // ============================================================
@@ -2085,14 +2356,16 @@ let buttonIdCounter = 1;
 function addButtonToCard() {
   pushUndoState();
   const btn = {
-    id: 'hcbtn_' + (buttonIdCounter++),
+    id: 'hcbtn_' + (buttonIdCounter),
+    nameId: 'button_' + (buttonIdCounter++),
     label: 'Button',
     x: 50, y: 50, w: 100, h: 32,
     goto: 0,
     sound: '',
     invisible: false,
     isCanvas: false,
-    canvasData: null
+    canvasData: null,
+    script: ''
   };
   stack[currentCardIdx].buttons.push(btn);
   saveCurrentCardImage();
@@ -2126,7 +2399,15 @@ function renderButtonsLayer() {
       }
       el.appendChild(btnCanvas);
     } else {
-      el.textContent = btn.label;
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = btn.label;
+      el.appendChild(labelSpan);
+      if (btn.script && btn.script.trim()) {
+        const badge = document.createElement('span');
+        badge.className = 'btn-script-badge';
+        badge.textContent = '{}';
+        el.appendChild(badge);
+      }
     }
 
     // Drag — pointer tool only
@@ -2224,11 +2505,13 @@ function deselectButton() {
 function openButtonDialog(id) {
   const btn = stack[currentCardIdx].buttons.find(b => b.id === id);
   if (!btn) return;
+  document.getElementById('btn-nameid').value = btn.nameId || '';
   document.getElementById('btn-label').value = btn.label;
   document.getElementById('btn-goto').value = btn.goto || 0;
   document.getElementById('btn-invisible').checked = !!btn.invisible;
   document.getElementById('btn-is-canvas').checked = !!btn.isCanvas;
   document.getElementById('btn-effect').value = btn.effect || '';
+  document.getElementById('btn-script').value = btn.script || '';
 
   const soundSel = document.getElementById('btn-sound');
   const customRow = document.getElementById('custom-sound-row');
@@ -2269,10 +2552,12 @@ async function applyButtonProps() {
   const btn = stack[currentCardIdx].buttons.find(b => b.id === focusedButtonId);
   if (!btn) { closeDialog('btn-dialog'); return; }
   pushUndoState();
+  btn.nameId = document.getElementById('btn-nameid').value.trim() || btn.nameId;
   btn.label = document.getElementById('btn-label').value || 'Button';
   btn.goto = parseInt(document.getElementById('btn-goto').value) || 0;
   btn.invisible = document.getElementById('btn-invisible').checked;
   btn.effect = document.getElementById('btn-effect').value || '';
+  btn.script = document.getElementById('btn-script').value;
   const wasCanvas = btn.isCanvas;
   btn.isCanvas = document.getElementById('btn-is-canvas').checked;
   if (!btn.isCanvas && wasCanvas) btn.canvasData = null; // clear drawing when turning off canvas mode
@@ -2692,6 +2977,140 @@ function playSound(name) {
 }
 
 // ============================================================
+// SCRIPT INTERPRETER
+// ============================================================
+
+// Runtime button visibility state for play mode (nameId -> { el, visible })
+const playBtnState = new Map();
+
+function runScript(scriptText) {
+  if (!scriptText || !scriptText.trim()) return;
+
+  const lines = scriptText.split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('--'));
+
+  let pc = 0;
+  let halted = false;
+  const MAX = 500;
+  let steps = 0;
+
+  while (pc < lines.length && !halted && steps++ < MAX) {
+    const line = lines[pc];
+    const tokens = line.split(/\s+/);
+    const cmd = tokens[0].toLowerCase();
+
+    if (cmd === 'if') {
+      const conditionText = tokens.slice(1).join(' ');
+      if (!evalScriptCondition(conditionText)) {
+        // skip to matching else or end
+        let depth = 1;
+        pc++;
+        while (pc < lines.length) {
+          const t = lines[pc].split(/\s+/)[0].toLowerCase();
+          if (t === 'if') depth++;
+          else if (t === 'end') { depth--; if (depth === 0) { pc++; break; } }
+          else if (t === 'else' && depth === 1) { pc++; break; } // execute else body
+          pc++;
+        }
+        continue;
+      }
+      pc++;
+      continue;
+    }
+
+    if (cmd === 'else') {
+      // reached else while the if-branch was executing — skip to matching end
+      let depth = 1;
+      pc++;
+      while (pc < lines.length) {
+        const t = lines[pc].split(/\s+/)[0].toLowerCase();
+        if (t === 'if') depth++;
+        else if (t === 'end') { depth--; if (depth === 0) { pc++; break; } }
+        pc++;
+      }
+      continue;
+    }
+
+    if (cmd === 'end') { pc++; continue; }
+    if (cmd === 'stop') { halted = true; break; }
+
+    execScriptCmd(tokens);
+    pc++;
+  }
+}
+
+function execScriptCmd(tokens) {
+  const cmd = tokens[0].toLowerCase();
+  const arg1 = (tokens[1] || '').toLowerCase();
+
+  switch (cmd) {
+    case 'go': {
+      if (arg1 === 'next')     renderPlayCard(Math.min(playCardIdx + 1, stack.length - 1));
+      else if (arg1 === 'prev' || arg1 === 'previous') renderPlayCard(Math.max(playCardIdx - 1, 0));
+      else if (arg1 === 'first') renderPlayCard(0);
+      else if (arg1 === 'last')  renderPlayCard(stack.length - 1);
+      else if (arg1 === 'card') {
+        const target = tokens[2];
+        if (!target) break;
+        const byName = stack.findIndex(c => c.name === target);
+        if (byName >= 0) { renderPlayCard(byName); break; }
+        const num = parseInt(target);
+        if (!isNaN(num) && num >= 1 && num <= stack.length) renderPlayCard(num - 1);
+      }
+      break;
+    }
+    case 'play': {
+      if (arg1 === 'sound') playSound(tokens[2] || '');
+      break;
+    }
+    case 'show': {
+      if (arg1 === 'button') {
+        const s = playBtnState.get(tokens[2]);
+        if (s) { s.visible = true; s.el.style.visibility = 'visible'; s.el.style.pointerEvents = 'all'; }
+      }
+      break;
+    }
+    case 'hide': {
+      if (arg1 === 'button') {
+        const s = playBtnState.get(tokens[2]);
+        if (s) { s.visible = false; s.el.style.visibility = 'hidden'; s.el.style.pointerEvents = 'none'; }
+      }
+      break;
+    }
+    case 'trigger': {
+      if (arg1 === 'effect') triggerEffect(tokens[2] || '');
+      break;
+    }
+  }
+}
+
+function evalScriptCondition(text) {
+  const t = text.trim().split(/\s+/);
+  // <buttonId> is [not] visible
+  if (t.length >= 3 && t[1].toLowerCase() === 'is') {
+    const negated = t[2].toLowerCase() === 'not';
+    const prop = (negated ? t[3] : t[2] || '').toLowerCase();
+    if (prop === 'visible') {
+      const s = playBtnState.get(t[0]);
+      const vis = s ? s.visible : false;
+      return negated ? !vis : vis;
+    }
+  }
+  // card is [not] <name|num>
+  if (t.length >= 3 && t[0].toLowerCase() === 'card' && t[1].toLowerCase() === 'is') {
+    const negated = t[2].toLowerCase() === 'not';
+    const target = negated ? t[3] : t[2];
+    if (!target) return false;
+    let match = (stack[playCardIdx] && stack[playCardIdx].name === target);
+    const num = parseInt(target);
+    if (!isNaN(num) && playCardIdx === num - 1) match = true;
+    return negated ? !match : match;
+  }
+  return false;
+}
+
+// ============================================================
 // PLAY MODE
 // ============================================================
 let playCardIdx = 0;
@@ -2744,6 +3163,7 @@ async function renderPlayCard(idx) {
       playTextLayer.appendChild(el);
     });
   }
+  playBtnState.clear();
   card.buttons.forEach(btn => {
     const el = document.createElement('div');
     el.className = 'hc-button';
@@ -2777,15 +3197,23 @@ async function renderPlayCard(idx) {
     } else {
       el.textContent = btn.label;
     }
+    if (btn.nameId) {
+      playBtnState.set(btn.nameId, { el, visible: !btn.invisible });
+    }
     el.addEventListener('click', () => {
-      if (btn.sound) playSound(btn.sound);
-      if (btn.effect) triggerEffect(btn.effect);
-      if (btn.goto > 0 && btn.goto <= stack.length) {
-        renderPlayCard(btn.goto - 1);
+      if (btn.script && btn.script.trim()) {
+        runScript(btn.script);
+      } else {
+        if (btn.sound) playSound(btn.sound);
+        if (btn.effect) triggerEffect(btn.effect);
+        if (btn.goto > 0 && btn.goto <= stack.length) {
+          renderPlayCard(btn.goto - 1);
+        }
       }
     });
     playButtons.appendChild(el);
   });
+  if (card.script && card.script.trim()) runScript(card.script);
 }
 
 // ============================================================
@@ -2829,6 +3257,16 @@ function projectNameKey(e) {
   }
 }
 
+function toggleCheatsheet() {
+  const panel = document.getElementById('script-cheatsheet');
+  const btn = document.getElementById('cheatsheet-toggle-btn');
+  const visible = panel.classList.toggle('visible');
+  btn.style.borderTopColor = visible ? 'var(--shadow)' : 'var(--highlight)';
+  btn.style.borderLeftColor = visible ? 'var(--shadow)' : 'var(--highlight)';
+  btn.style.borderBottomColor = visible ? 'var(--highlight)' : 'var(--shadow)';
+  btn.style.borderRightColor = visible ? 'var(--highlight)' : 'var(--shadow)';
+}
+
 function safeFilename(name) {
   return name.replace(/[^a-z0-9_\-. ]/gi, '_').trim() || 'untitled';
 }
@@ -2845,6 +3283,7 @@ function saveStack() {
     stack: stack.map(card => ({
       id: card.id,
       name: card.name,
+      script: card.script || '',
       imageData: card.imageData,
       textObjects: card.textObjects || [],
       buttons: card.buttons
@@ -2876,9 +3315,10 @@ async function loadStackFile(e) {
     stack = data.stack.map(card => ({
       id: card.id || Date.now(),
       name: card.name || 'Card',
+      script: card.script || '',
       imageData: card.imageData || null,
       textObjects: card.textObjects || [],
-      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, ...b }))
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, nameId: '', script: '', ...b }))
     }));
     currentCardIdx = 0;
     await loadCardImage(stack[0]);
@@ -2886,6 +3326,7 @@ async function loadStackFile(e) {
     renderTextLayer();
     rebuildStrip();
     updateStatus();
+    updateCardNameInput();
   } catch(err) {
     alert('Could not load stack file: ' + err.message);
   }
@@ -2948,7 +3389,8 @@ function saveToBrowser() {
     savedAt: new Date().toISOString(),
     customSounds,
     stack: stack.map(card => ({
-      id: card.id, name: card.name, imageData: card.imageData,
+      id: card.id, name: card.name, script: card.script || '',
+      imageData: card.imageData,
       textObjects: card.textObjects || [], buttons: card.buttons
     }))
   };
@@ -3067,9 +3509,10 @@ async function loadFromBrowserSelected() {
     stack = data.stack.map(card => ({
       id: card.id || Date.now(),
       name: card.name || 'Card',
+      script: card.script || '',
       imageData: card.imageData || null,
       textObjects: card.textObjects || [],
-      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, ...b }))
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, nameId: '', script: '', ...b }))
     }));
     currentCardIdx = 0;
     await loadCardImage(stack[0]);
@@ -3077,6 +3520,7 @@ async function loadFromBrowserSelected() {
     renderTextLayer();
     rebuildStrip();
     updateStatus();
+    updateCardNameInput();
     closeDialog('browser-load-dialog');
   } catch(err) {
     alert('Could not load stack: ' + err.message);
@@ -3090,7 +3534,8 @@ function exportStack() {
   saveCurrentCardImage();
   const exportCustomSounds = JSON.stringify(customSounds);
   const stackData = JSON.stringify(stack.map(c => ({
-    name: c.name, imageData: c.imageData,
+    name: c.name, script: c.script || '',
+    imageData: c.imageData,
     textObjects: c.textObjects || [],
     buttons: c.buttons
   })));
@@ -3159,6 +3604,7 @@ function show(i){
     el.textContent=t.content;
     txtlayer.appendChild(el);
   });
+  btnState.clear();
   card.buttons.forEach(btn=>{
     const el=document.createElement('div');
     el.className='hc-button'+(btn.invisible?' invisible':'');
@@ -3173,13 +3619,78 @@ function show(i){
       if(btn.canvasData){const img=new Image();img.onload=()=>bc.drawImage(img,0,0,btn.w,btn.h);img.src=btn.canvasData;}
       el.appendChild(c);
     }else{el.textContent=btn.label;}
+    if(btn.nameId)btnState.set(btn.nameId,{el,visible:!btn.invisible});
     el.addEventListener('click',()=>{
-      if(btn.sound)playSound(btn.sound);
-      if(btn.effect)triggerFX(btn.effect);
-      if(btn.goto>0&&btn.goto<=stack.length)show(btn.goto-1);
+      if(btn.script&&btn.script.trim()){runScript(btn.script);}
+      else{
+        if(btn.sound)playSound(btn.sound);
+        if(btn.effect)triggerFX(btn.effect);
+        if(btn.goto>0&&btn.goto<=stack.length)show(btn.goto-1);
+      }
     });
     btns.appendChild(el);
   });
+  if(card.script&&card.script.trim())runScript(card.script);
+}
+const btnState=new Map();
+function runScript(src){
+  const lines=src.split('\\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('--'));
+  let pc=0,halted=false;const MAX=500;let steps=0;
+  while(pc<lines.length&&!halted&&steps++<MAX){
+    const tokens=lines[pc].split(/\s+/);
+    const cmd=tokens[0].toLowerCase();
+    if(cmd==='if'){
+      if(!evalCond(tokens.slice(1).join(' '))){
+        let d=1;pc++;
+        while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}else if(t==='else'&&d===1){pc++;break;}pc++;}
+        continue;
+      }pc++;continue;
+    }
+    if(cmd==='else'){let d=1;pc++;while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}pc++;}continue;}
+    if(cmd==='end'){pc++;continue;}
+    if(cmd==='stop'){halted=true;break;}
+    execCmd(tokens);pc++;
+  }
+}
+function execCmd(t){
+  const cmd=t[0]&&t[0].toLowerCase();
+  if(cmd==='go'){
+    const a=t[1]&&t[1].toLowerCase();
+    if(a==='next')show(Math.min(idx+1,stack.length-1));
+    else if(a==='prev'||a==='previous')show(Math.max(idx-1,0));
+    else if(a==='first')show(0);
+    else if(a==='last')show(stack.length-1);
+    else if(a==='card'){
+      const name=t[2]||'';
+      const byName=stack.findIndex(c=>c.name===name);
+      if(byName>=0){show(byName);return;}
+      const num=parseInt(name,10);
+      if(!isNaN(num)&&num>=1&&num<=stack.length)show(num-1);
+    }
+  }else if(cmd==='show'&&t[1]&&t[1].toLowerCase()==='button'){
+    const s=btnState.get(t[2]);
+    if(s){s.el.style.visibility='visible';s.visible=true;}
+  }else if(cmd==='hide'&&t[1]&&t[1].toLowerCase()==='button'){
+    const s=btnState.get(t[2]);
+    if(s){s.el.style.visibility='hidden';s.visible=false;}
+  }else if(cmd==='play'&&t[1]&&t[1].toLowerCase()==='sound'){playSound(t[2]);}
+  else if(cmd==='trigger'&&t[1]&&t[1].toLowerCase()==='effect'){triggerFX(t[2]);}
+}
+function evalCond(text){
+  const t=text.trim().split(/\s+/);
+  if(t.length>=3&&t[1].toLowerCase()==='is'){
+    const neg=t[2].toLowerCase()==='not';
+    const prop=neg?(t[3]||'').toLowerCase():(t[2]||'').toLowerCase();
+    if(prop==='visible'){const s=btnState.get(t[0]);if(!s)return false;return neg?!s.visible:s.visible;}
+  }
+  if(t[0].toLowerCase()==='card'&&t[1].toLowerCase()==='is'){
+    const neg=t[2]&&t[2].toLowerCase()==='not';
+    const target=neg?t[3]:t[2];
+    const byName=stack.findIndex(c=>c.name===target);
+    const match=byName>=0?byName===idx:(parseInt(target,10)-1===idx);
+    return neg?!match:match;
+  }
+  return false;
 }
 show(0);
 <\/script></body></html>`;
@@ -3296,6 +3807,36 @@ document.addEventListener('keydown', e => {
 
   document.addEventListener('mousedown', () => closeAll());
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+})();
+
+// ============================================================
+// CARD NAME INPUT EVENTS
+// ============================================================
+(function() {
+  const nameInput = document.getElementById('card-name-input');
+
+  nameInput.addEventListener('input', () => {
+    if (!stack[currentCardIdx]) return;
+    stack[currentCardIdx].name = nameInput.value;
+    // Update just the label in the strip without full rebuild
+    const thumbs = cardStrip.querySelectorAll('.card-thumb');
+    const lbl = thumbs[currentCardIdx] ? thumbs[currentCardIdx].querySelector('.card-thumb-label') : null;
+    if (lbl) lbl.textContent = nameInput.value;
+  });
+
+  nameInput.addEventListener('blur', () => {
+    if (!stack[currentCardIdx]) return;
+    if (!nameInput.value.trim()) nameInput.value = stack[currentCardIdx].name;
+  });
+
+  // Commit on Enter, blur on Escape
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
+    if (e.key === 'Escape') { nameInput.value = stack[currentCardIdx] ? stack[currentCardIdx].name : ''; nameInput.blur(); }
+  });
+
+  // Prevent card-navigation keys from firing while typing in the name box
+  nameInput.addEventListener('keydown', e => e.stopPropagation());
 })();
 
 // ============================================================
