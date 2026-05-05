@@ -501,6 +501,35 @@
     outline: 2px dashed #0000ff;
   }
 
+  /* Canvas button — fully transparent, no bevel */
+  .hc-button.canvas-btn {
+    padding: 0;
+    overflow: hidden;
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+  .hc-button.canvas-btn .btn-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    display: block;
+  }
+  /* Subtle dashed outline in editor so the button is locatable */
+  .editor-mode .hc-button.canvas-btn {
+    outline: 1px dashed rgba(0, 80, 200, 0.35);
+    outline-offset: 0;
+  }
+  .editor-mode .hc-button.canvas-btn::after {
+    content: '🎨';
+    position: absolute;
+    bottom: 1px; right: 4px;
+    font-size: 9px;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0.55;
+  }
+
   .btn-handle {
     position: absolute;
     width: 8px; height: 8px;
@@ -800,7 +829,7 @@
 <div id="toolbar">
   <button class="tool-btn active" id="tool-pointer" data-tip="Pointer/Select [V]" onclick="setTool('pointer')" style="font-size:17px">☞</button>
   <button class="tool-btn" id="tool-pencil" data-tip="Pencil [P]" onclick="setTool('pencil')">✏️</button>
-  <button class="tool-btn" id="tool-eraser" data-tip="Eraser [E]" onclick="setTool('eraser')">⬜</button>
+  <button class="tool-btn" id="tool-eraser" data-tip="Eraser [E]" onclick="setTool('eraser')" style="font-size:0"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="6" width="14" height="7" rx="1.5" fill="#ffb3ba" stroke="#555" stroke-width="1"/><rect x="1" y="6" width="5" height="7" rx="1.5" fill="#c870c8" stroke="none"/><line x1="1" y1="14" x2="15" y2="14" stroke="#bbb" stroke-width="1.5" stroke-linecap="round"/></svg></button>
   <button class="tool-btn" id="tool-rect" data-tip="Rectangle [R]" onclick="setTool('rect')">▭</button>
   <button class="tool-btn" id="tool-circle" data-tip="Ellipse [C]" onclick="setTool('circle')">◯</button>
   <button class="tool-btn" id="tool-fill" data-tip="Fill (rectangle interior) [F]" onclick="setTool('fill')">▬</button>
@@ -954,6 +983,10 @@
         <input type="checkbox" id="btn-invisible" style="width:auto">
         <label for="btn-invisible">Invisible button (hidden in Play mode, outlined in Editor)</label>
       </div>
+      <div class="dialog-row" style="flex-direction:row;align-items:center;gap:8px">
+        <input type="checkbox" id="btn-is-canvas" style="width:auto">
+        <label for="btn-is-canvas">Canvas button (drawable surface — draw on it with any drawing tool)</label>
+      </div>
       <div class="dialog-row">
         <label>Visual Effect:</label>
         <select id="btn-effect">
@@ -1023,6 +1056,14 @@ const CARD_W = 1063;
 const CARD_H = 797;
 
 // ============================================================
+// ERASER CURSOR
+// ============================================================
+const ERASER_CURSOR = (() => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22"><rect x="1" y="6" width="16" height="9" rx="2" fill="#ffb3ba" stroke="#444" stroke-width="1.2"/><rect x="1" y="6" width="6" height="9" rx="2" fill="#c870c8" stroke="none"/><line x1="1" y1="16" x2="17" y2="16" stroke="#bbb" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 2 14, cell`;
+})();
+
+// ============================================================
 // STATE
 // ============================================================
 let stack = []; // Array of card objects
@@ -1043,6 +1084,8 @@ let projectName = 'Untitled Stack';
 let fontFamily = "'Share Tech Mono', monospace";
 let fontSize = 20;
 let selectedTextId = null;
+let drawingOnButton = null;  // button obj if drawing on a canvas button, else null
+let activeSurface = null;    // { ctx, w, h, ox, oy, button } for current drawing surface
 
 // Custom uploaded sounds: id -> { name, dataUrl }
 const customSounds = {};
@@ -1331,7 +1374,7 @@ function setTool(tool) {
   document.getElementById('status-tool').textContent = tool;
 
   // cursor
-  const cursors = { pointer: 'default', pencil: 'crosshair', eraser: 'cell', rect: 'crosshair', circle: 'crosshair', fill: 'crosshair', bucket: 'crosshair', lasso: 'crosshair', polygon: 'crosshair', text: 'text' };
+  const cursors = { pointer: 'default', pencil: 'crosshair', eraser: ERASER_CURSOR, rect: 'crosshair', circle: 'crosshair', fill: 'crosshair', bucket: 'crosshair', lasso: 'crosshair', polygon: 'crosshair', text: 'text' };
   drawingCanvas.style.cursor = cursors[tool] || 'default';
 
   if (tool !== 'polygon' && polyActive) cancelPolygon();
@@ -1345,6 +1388,7 @@ function setTool(tool) {
   }
 
   if (tool !== 'pointer') deselectButton();
+  updateButtonPointerEvents();
 }
 
 function updateBrushSize(v) {
@@ -1367,6 +1411,57 @@ function getPos(e, clamp) {
     y = Math.max(0, Math.min(CARD_H, y));
   }
   return { x, y };
+}
+
+// ============================================================
+// CANVAS-BUTTON DRAWING HELPERS
+// ============================================================
+function getHitCanvasButton(p) {
+  if (!stack[currentCardIdx]) return null;
+  for (const btn of stack[currentCardIdx].buttons) {
+    if (btn.isCanvas && p.x >= btn.x && p.x < btn.x + btn.w && p.y >= btn.y && p.y < btn.y + btn.h) return btn;
+  }
+  return null;
+}
+
+function getBtnCanvas(btn) {
+  const el = document.getElementById(btn.id);
+  return el ? el.querySelector('.btn-canvas') : null;
+}
+
+function saveButtonCanvas(btn) {
+  const c = getBtnCanvas(btn);
+  if (c) btn.canvasData = c.toDataURL();
+}
+
+function buildActiveSurface(btn) {
+  if (!btn) return null;
+  const c = getBtnCanvas(btn);
+  if (!c) return null;
+  return { ctx: c.getContext('2d'), w: btn.w, h: btn.h, ox: btn.x, oy: btn.y, button: btn };
+}
+
+function toSurface(p) {
+  if (!activeSurface) return p;
+  return { x: p.x - activeSurface.ox, y: p.y - activeSurface.oy };
+}
+
+function finishSurfaceDraw() {
+  if (activeSurface) {
+    saveButtonCanvas(activeSurface.button);
+    activeSurface = null;
+  } else {
+    saveCurrentCardImage();
+    updateThumb(currentCardIdx);
+  }
+  drawingOnButton = null;
+}
+
+function updateButtonPointerEvents() {
+  const passThrough = currentTool !== 'pointer' && currentTool !== 'text';
+  document.querySelectorAll('.hc-button, .btn-handle').forEach(el => {
+    el.style.pointerEvents = passThrough ? 'none' : 'all';
+  });
 }
 
 // mousedown only on canvas; move+up on document so drags that leave the canvas still track
@@ -1418,60 +1513,81 @@ function startDraw(e) {
   if (currentTool === 'pointer' || currentTool === 'text' || currentTool === 'polygon') return;
   const p = getPos(e);
 
+  // Determine drawing surface (main canvas or a canvas button)
+  drawingOnButton = getHitCanvasButton(p);
+  activeSurface = buildActiveSurface(drawingOnButton);
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
+  const aw = activeSurface ? activeSurface.w : CARD_W;
+  const ah = activeSurface ? activeSurface.h : CARD_H;
+  const sp = toSurface(p);
+
   // Bucket flood fill: instant, no drag needed
   if (currentTool === 'bucket') {
     pushUndoState();
     const color = fillColor || strokeColor;
-    floodFill(p.x, p.y, color);
-    saveCurrentCardImage();
-    updateThumb(currentCardIdx);
+    if (activeSurface) {
+      const c = getBtnCanvas(drawingOnButton);
+      if (c) { floodFill(sp.x, sp.y, color, c); saveButtonCanvas(drawingOnButton); }
+      activeSurface = null;
+    } else {
+      floodFill(p.x, p.y, color);
+      saveCurrentCardImage();
+      updateThumb(currentCardIdx);
+    }
+    drawingOnButton = null;
     return;
   }
 
   isDrawing = true;
-  drawStart = p;
-  lastPos = p;
+  drawStart = sp;
+  lastPos = sp;
   pushUndoState();
-  snapshotBeforeDraw = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+  snapshotBeforeDraw = ctx.getImageData(0, 0, aw, ah);
 
   if (currentTool === 'pencil') {
-    drawCtx.beginPath();
-    drawCtx.moveTo(p.x, p.y);
+    ctx.beginPath();
+    ctx.moveTo(sp.x, sp.y);
   } else if (currentTool === 'lasso') {
-    // Track all points for the filled shape
-    lassoPoints = [p];
-    drawCtx.beginPath();
-    drawCtx.moveTo(p.x, p.y);
+    lassoPoints = [p]; // keep in card coords; translate in draw functions
+    ctx.beginPath();
+    ctx.moveTo(sp.x, sp.y);
   }
 }
 
 function moveDraw(e, clamp) {
   if (!isDrawing) return;
-  const p = getPos(e, clamp);
+  const rawP = getPos(e, clamp);
+  const p = toSurface(rawP);
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
 
   if (currentTool === 'pencil') {
     if (!strokeColor) return;
-    drawCtx.globalCompositeOperation = 'source-over';
-    drawCtx.strokeStyle = strokeColor;
-    drawCtx.lineWidth = brushSize;
-    drawCtx.lineCap = 'round';
-    drawCtx.lineJoin = 'round';
-    drawCtx.lineTo(p.x, p.y);
-    drawCtx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
   } else if (currentTool === 'lasso') {
-    lassoPoints.push(p);
-    // Redraw from snapshot, show current outline with closing line preview
-    drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    lassoPoints.push(rawP); // card coords
+    ctx.putImageData(snapshotBeforeDraw, 0, 0);
     drawLassoPreview();
   } else if (currentTool === 'eraser') {
-    drawCtx.globalCompositeOperation = 'source-over';
-    drawCtx.fillStyle = '#ffffff';
     const s = brushSize * 3;
-    drawCtx.fillRect(p.x - s/2, p.y - s/2, s, s);
+    if (activeSurface) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+      ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(p.x - s/2, p.y - s/2, s, s);
+    }
   } else if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill') {
-    // Preview: restore snapshot then draw
-    drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
-    drawShape(drawCtx, drawStart, p);
+    ctx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawShape(ctx, drawStart, p);
   }
   lastPos = p;
 }
@@ -1479,23 +1595,23 @@ function moveDraw(e, clamp) {
 function endDraw(e, clamp) {
   if (!isDrawing) return;
   isDrawing = false;
-  const p = getPos(e, clamp);
+  const rawP = getPos(e, clamp);
+  const p = toSurface(rawP);
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
 
   if (currentTool === 'lasso') {
-    lassoPoints.push(p);
-    // Restore snapshot, draw the final filled+stroked closed shape
-    if (snapshotBeforeDraw) drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
+    lassoPoints.push(rawP);
+    if (snapshotBeforeDraw) ctx.putImageData(snapshotBeforeDraw, 0, 0);
     drawLassoFinal();
     lassoPoints = [];
   } else if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill') {
-    if (snapshotBeforeDraw) drawCtx.putImageData(snapshotBeforeDraw, 0, 0);
-    drawShape(drawCtx, drawStart, p);
+    if (snapshotBeforeDraw) ctx.putImageData(snapshotBeforeDraw, 0, 0);
+    drawShape(ctx, drawStart, p);
   }
 
-  drawCtx.beginPath();
-  drawCtx.globalCompositeOperation = 'source-over';
-  saveCurrentCardImage();
-  updateThumb(currentCardIdx);
+  ctx.beginPath();
+  ctx.globalCompositeOperation = 'source-over';
+  finishSurfaceDraw();
   snapshotBeforeDraw = null;
 }
 
@@ -1534,7 +1650,9 @@ function drawShape(ctx, a, b) {
 // ============================================================
 function drawLassoPreview() {
   if (lassoPoints.length < 2) return;
-  const ctx = drawCtx;
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
+  const ox = activeSurface ? activeSurface.ox : 0;
+  const oy = activeSurface ? activeSurface.oy : 0;
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineWidth = brushSize;
   ctx.lineCap = 'round';
@@ -1543,9 +1661,9 @@ function drawLassoPreview() {
   if (strokeColor) {
     ctx.strokeStyle = strokeColor;
     ctx.beginPath();
-    ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+    ctx.moveTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
     for (let i = 1; i < lassoPoints.length; i++) {
-      ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+      ctx.lineTo(lassoPoints[i].x - ox, lassoPoints[i].y - oy);
     }
     ctx.stroke();
 
@@ -1554,8 +1672,8 @@ function drawLassoPreview() {
     ctx.lineWidth = 1;
     ctx.strokeStyle = strokeColor;
     ctx.beginPath();
-    ctx.moveTo(lassoPoints[lassoPoints.length - 1].x, lassoPoints[lassoPoints.length - 1].y);
-    ctx.lineTo(lassoPoints[0].x, lassoPoints[0].y);
+    ctx.moveTo(lassoPoints[lassoPoints.length - 1].x - ox, lassoPoints[lassoPoints.length - 1].y - oy);
+    ctx.lineTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
     ctx.stroke();
     ctx.restore();
   }
@@ -1563,16 +1681,18 @@ function drawLassoPreview() {
 
 function drawLassoFinal() {
   if (lassoPoints.length < 2) return;
-  const ctx = drawCtx;
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
+  const ox = activeSurface ? activeSurface.ox : 0;
+  const oy = activeSurface ? activeSurface.oy : 0;
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineWidth = brushSize;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   ctx.beginPath();
-  ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+  ctx.moveTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
   for (let i = 1; i < lassoPoints.length; i++) {
-    ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+    ctx.lineTo(lassoPoints[i].x - ox, lassoPoints[i].y - oy);
   }
   ctx.closePath();
 
@@ -1615,6 +1735,8 @@ function polyScreenDist(p1, p2, scaleX) {
 function cancelPolygon() {
   polyPoints = [];
   polyActive = false;
+  activeSurface = null;
+  drawingOnButton = null;
   clearUiCanvas();
 }
 
@@ -1692,32 +1814,26 @@ function polyMouseMove(e) {
 }
 
 function polyCommit() {
-  // Draw the final polygon onto the drawing canvas
   if (polyPoints.length < 2) { cancelPolygon(); return; }
   clearUiCanvas();
-  const ctx = drawCtx;
+  const ctx = activeSurface ? activeSurface.ctx : drawCtx;
+  const ox = activeSurface ? activeSurface.ox : 0;
+  const oy = activeSurface ? activeSurface.oy : 0;
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineWidth = Math.max(1, brushSize);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+  ctx.moveTo(polyPoints[0].x - ox, polyPoints[0].y - oy);
   for (let i = 1; i < polyPoints.length; i++) {
-    ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+    ctx.lineTo(polyPoints[i].x - ox, polyPoints[i].y - oy);
   }
   ctx.closePath();
-  if (fillColor) {
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-  }
-  if (strokeColor) {
-    ctx.strokeStyle = strokeColor;
-    ctx.stroke();
-  }
+  if (fillColor) { ctx.fillStyle = fillColor; ctx.fill(); }
+  if (strokeColor) { ctx.strokeStyle = strokeColor; ctx.stroke(); }
   polyPoints = [];
   polyActive = false;
-  saveCurrentCardImage();
-  updateThumb(currentCardIdx);
+  finishSurfaceDraw();
 }
 
 // Click: add a vertex (or close if snapping to first point)
@@ -1728,7 +1844,8 @@ drawingCanvas.addEventListener('click', e => {
 
   const p = polyCanvasPos(e);
   if (!polyActive) {
-    // Start a new polygon
+    drawingOnButton = getHitCanvasButton(p);
+    activeSurface = buildActiveSurface(drawingOnButton);
     pushUndoState();
     snapshotBeforeDraw = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
     polyPoints = [p];
@@ -1765,11 +1882,13 @@ document.addEventListener('keydown', e => {
     cancelPolygon();
   }
 }, true); // capture phase so it fires before other keydown handlers
-function floodFill(startX, startY, fillColorHex) {
-  const imgData = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+function floodFill(startX, startY, fillColorHex, targetCanvas) {
+  const canvas = targetCanvas || drawingCanvas;
+  const ctx2 = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const imgData = ctx2.getImageData(0, 0, W, H);
   const data = imgData.data;
-  const W = CARD_W;
-  const H = CARD_H;
 
   // Parse fill color
   const fillR = parseInt(fillColorHex.slice(1, 3), 16);
@@ -1848,7 +1967,7 @@ function floodFill(startX, startY, fillColorHex) {
     }
   }
 
-  drawCtx.putImageData(imgData, 0, 0);
+  ctx2.putImageData(imgData, 0, 0);
 }
 
 // ============================================================
@@ -1971,7 +2090,9 @@ function addButtonToCard() {
     x: 50, y: 50, w: 100, h: 32,
     goto: 0,
     sound: '',
-    invisible: false
+    invisible: false,
+    isCanvas: false,
+    canvasData: null
   };
   stack[currentCardIdx].buttons.push(btn);
   saveCurrentCardImage();
@@ -1984,16 +2105,31 @@ function renderButtonsLayer() {
   if (!stack[currentCardIdx]) return;
   stack[currentCardIdx].buttons.forEach(btn => {
     const el = document.createElement('div');
-    el.className = 'hc-button' + (btn.invisible ? ' invisible-btn' : '');
+    el.className = 'hc-button' + (btn.invisible ? ' invisible-btn' : '') + (btn.isCanvas ? ' canvas-btn' : '');
     el.id = btn.id;
-    el.textContent = btn.label;
     el.style.left = btn.x + 'px';
     el.style.top = btn.y + 'px';
     el.style.width = btn.w + 'px';
     el.style.height = btn.h + 'px';
-    el.style.pointerEvents = 'all';
 
-    // Drag
+    if (btn.isCanvas) {
+      // Embed a drawable canvas inside the button frame
+      const btnCanvas = document.createElement('canvas');
+      btnCanvas.className = 'btn-canvas';
+      btnCanvas.width = btn.w;
+      btnCanvas.height = btn.h;
+      const bctx = btnCanvas.getContext('2d');
+      if (btn.canvasData) {
+        const img = new Image();
+        img.onload = () => bctx.drawImage(img, 0, 0, btn.w, btn.h);
+        img.src = btn.canvasData;
+      }
+      el.appendChild(btnCanvas);
+    } else {
+      el.textContent = btn.label;
+    }
+
+    // Drag — pointer tool only
     el.addEventListener('mousedown', e => {
       if (currentTool !== 'pointer') return;
       e.stopPropagation();
@@ -2035,15 +2171,30 @@ function renderButtonsLayer() {
       const startY = e.clientY;
       const startW = btn.w;
       const startH = btn.h;
+      // Capture button canvas content before resize so we can re-scale it
+      const btnCanvas = btn.isCanvas ? el.querySelector('.btn-canvas') : null;
+      let savedImg = null;
+      if (btnCanvas) {
+        const dataUrl = btnCanvas.toDataURL();
+        savedImg = new Image();
+        savedImg.src = dataUrl; // data URL loads synchronously
+      }
       const move = ev => {
         btn.w = Math.max(40, startW + ev.clientX - startX);
         btn.h = Math.max(20, startH + ev.clientY - startY);
         el.style.width = btn.w + 'px';
         el.style.height = btn.h + 'px';
+        if (btnCanvas) {
+          btnCanvas.width = btn.w;
+          btnCanvas.height = btn.h;
+          const bctx = btnCanvas.getContext('2d');
+          if (savedImg && savedImg.complete) bctx.drawImage(savedImg, 0, 0, btn.w, btn.h);
+        }
       };
       const up = () => {
         document.removeEventListener('mousemove', move);
         document.removeEventListener('mouseup', up);
+        if (btn.isCanvas) saveButtonCanvas(btn);
         updateThumb(currentCardIdx);
       };
       document.addEventListener('mousemove', move);
@@ -2055,6 +2206,7 @@ function renderButtonsLayer() {
   });
 
   if (focusedButtonId) selectButton(focusedButtonId);
+  updateButtonPointerEvents();
 }
 
 function selectButton(id) {
@@ -2075,6 +2227,7 @@ function openButtonDialog(id) {
   document.getElementById('btn-label').value = btn.label;
   document.getElementById('btn-goto').value = btn.goto || 0;
   document.getElementById('btn-invisible').checked = !!btn.invisible;
+  document.getElementById('btn-is-canvas').checked = !!btn.isCanvas;
   document.getElementById('btn-effect').value = btn.effect || '';
 
   const soundSel = document.getElementById('btn-sound');
@@ -2120,6 +2273,9 @@ async function applyButtonProps() {
   btn.goto = parseInt(document.getElementById('btn-goto').value) || 0;
   btn.invisible = document.getElementById('btn-invisible').checked;
   btn.effect = document.getElementById('btn-effect').value || '';
+  const wasCanvas = btn.isCanvas;
+  btn.isCanvas = document.getElementById('btn-is-canvas').checked;
+  if (!btn.isCanvas && wasCanvas) btn.canvasData = null; // clear drawing when turning off canvas mode
 
   const soundSel = document.getElementById('btn-sound');
   const soundVal = soundSel.value;
@@ -2591,7 +2747,6 @@ async function renderPlayCard(idx) {
   card.buttons.forEach(btn => {
     const el = document.createElement('div');
     el.className = 'hc-button';
-    el.textContent = btn.label;
     el.style.left = btn.x + 'px';
     el.style.top = btn.y + 'px';
     el.style.width = btn.w + 'px';
@@ -2602,6 +2757,25 @@ async function renderPlayCard(idx) {
       el.style.background = 'transparent';
       el.style.border = 'none';
       el.style.color = 'transparent';
+    }
+    if (btn.isCanvas) {
+      el.style.padding = '0';
+      el.style.overflow = 'hidden';
+      el.style.background = 'transparent';
+      el.style.border = 'none';
+      const c = document.createElement('canvas');
+      c.width = btn.w; c.height = btn.h;
+      c.style.width = '100%'; c.style.height = '100%';
+      c.style.display = 'block';
+      const bctx = c.getContext('2d');
+      if (btn.canvasData) {
+        const img = new Image();
+        img.onload = () => bctx.drawImage(img, 0, 0, btn.w, btn.h);
+        img.src = btn.canvasData;
+      }
+      el.appendChild(c);
+    } else {
+      el.textContent = btn.label;
     }
     el.addEventListener('click', () => {
       if (btn.sound) playSound(btn.sound);
@@ -2704,7 +2878,7 @@ async function loadStackFile(e) {
       name: card.name || 'Card',
       imageData: card.imageData || null,
       textObjects: card.textObjects || [],
-      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', ...b }))
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, ...b }))
     }));
     currentCardIdx = 0;
     await loadCardImage(stack[0]);
@@ -2774,7 +2948,8 @@ function saveToBrowser() {
     savedAt: new Date().toISOString(),
     customSounds,
     stack: stack.map(card => ({
-      id: card.id, name: card.name, imageData: card.imageData, buttons: card.buttons
+      id: card.id, name: card.name, imageData: card.imageData,
+      textObjects: card.textObjects || [], buttons: card.buttons
     }))
   };
   const json = JSON.stringify(data);
@@ -2894,7 +3069,7 @@ async function loadFromBrowserSelected() {
       name: card.name || 'Card',
       imageData: card.imageData || null,
       textObjects: card.textObjects || [],
-      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', ...b }))
+      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, ...b }))
     }));
     currentCardIdx = 0;
     await loadCardImage(stack[0]);
@@ -2987,9 +3162,17 @@ function show(i){
   card.buttons.forEach(btn=>{
     const el=document.createElement('div');
     el.className='hc-button'+(btn.invisible?' invisible':'');
-    el.textContent=btn.label;
     el.style.left=btn.x+'px';el.style.top=btn.y+'px';
     el.style.width=btn.w+'px';el.style.height=btn.h+'px';
+    if(btn.isCanvas){
+      el.style.padding='0';el.style.overflow='hidden';
+      el.style.background='transparent';el.style.border='none';
+      const c=document.createElement('canvas');
+      c.width=btn.w;c.height=btn.h;c.style.width='100%';c.style.height='100%';c.style.display='block';
+      const bc=c.getContext('2d');
+      if(btn.canvasData){const img=new Image();img.onload=()=>bc.drawImage(img,0,0,btn.w,btn.h);img.src=btn.canvasData;}
+      el.appendChild(c);
+    }else{el.textContent=btn.label;}
     el.addEventListener('click',()=>{
       if(btn.sound)playSound(btn.sound);
       if(btn.effect)triggerFX(btn.effect);
