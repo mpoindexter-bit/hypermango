@@ -1073,6 +1073,18 @@
   <div id="script-cheatsheet-body">
 
     <div>
+      <div class="cs-section-title">Keywords</div>
+      <table class="cs-table"><tbody>
+        <tr><td>this</td><td>the button this script is attached to (button scripts only)</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">-- these all refer to the button itself:
+hide button this
+show button this
+move this right by 40 in 1 seconds
+if this is visible</div>
+    </div>
+
+    <div>
       <div class="cs-section-title">Navigation</div>
       <table class="cs-table"><tbody>
         <tr><td>go next</td><td>next card</td></tr>
@@ -1116,7 +1128,10 @@ wait 2 seconds</div>
         <tr><td>hide button &lt;nameId&gt;</td><td>make hidden</td></tr>
       </tbody></table>
       <div class="cs-block" style="margin-top:4px">show button myRedBtn
-hide button myRedBtn</div>
+hide button myRedBtn
+
+-- hide the button that was clicked:
+hide button this</div>
     </div>
 
     <div>
@@ -1127,15 +1142,20 @@ hide button myRedBtn</div>
         <tr><td></td><td>n: pixels or % of size</td></tr>
       </tbody></table>
       <div class="cs-block" style="margin-top:4px">-- slide right 40px over 2 seconds:
-move myBtn right by 40 in 2 seconds
+move this right by 40 in 2 seconds
 
 -- slide left 50% of button width:
-move myBtn left by 50% in 1 seconds
+move this left by 50% in 1 seconds
 
 -- animate then go next:
-move myBtn up by 100 in 0.5 seconds
+move this up by 100 in 0.5 seconds
 wait until done
-go next</div>
+go next
+
+-- hide self after playing sound:
+play sound click
+wait until done
+hide button this</div>
     </div>
 
     <div>
@@ -1160,12 +1180,12 @@ trigger effect negative</div>
     <div>
       <div class="cs-section-title">Conditionals</div>
       <div class="cs-note" style="margin-bottom:4px">Blocks end with <b>end</b>. Optional <b>else</b> branch.</div>
-      <div class="cs-block">if &lt;btnId&gt; is visible
+      <div class="cs-block">if this is visible
   play sound whoosh
-  hide button &lt;btnId&gt;
+  hide button this
 else
   play sound glass
-  show button &lt;btnId&gt;
+  show button this
 end
 
 if card is card_a
@@ -3032,7 +3052,7 @@ function playSound(name) {
 // Runtime button visibility state for play mode (nameId -> { el, visible })
 const playBtnState = new Map();
 
-async function runScript(scriptText) {
+async function runScript(scriptText, selfId) {
   if (!scriptText || !scriptText.trim()) return;
 
   const lines = scriptText.split('\n')
@@ -3046,7 +3066,7 @@ async function runScript(scriptText) {
 
   while (pc < lines.length && !halted && steps++ < MAX) {
     const line = lines[pc];
-    const tokens = line.split(/\s+/);
+    const tokens = line.split(/\s+/).map(tok => selfId && tok.toLowerCase() === 'this' ? selfId : tok);
     const cmd = tokens[0].toLowerCase();
 
     if (cmd === 'if') {
@@ -3315,7 +3335,7 @@ async function renderPlayCard(idx) {
     }
     el.addEventListener('click', () => {
       if (btn.script && btn.script.trim()) {
-        runScript(btn.script);
+        runScript(btn.script, btn.nameId);
       } else {
         if (btn.sound) playSound(btn.sound);
         if (btn.effect) triggerEffect(btn.effect);
@@ -3735,7 +3755,7 @@ function show(i){
     }else{el.textContent=btn.label;}
     if(btn.nameId)btnState.set(btn.nameId,{el,visible:!btn.invisible});
     el.addEventListener('click',()=>{
-      if(btn.script&&btn.script.trim()){runScript(btn.script);}
+      if(btn.script&&btn.script.trim()){runScript(btn.script,btn.nameId);}
       else{
         if(btn.sound)playSound(btn.sound);
         if(btn.effect)triggerFX(btn.effect);
@@ -3747,11 +3767,11 @@ function show(i){
   if(card.script&&card.script.trim())runScript(card.script);
 }
 const btnState=new Map();
-async function runScript(src){
+async function runScript(src,selfId){
   const lines=src.split('\\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('--'));
   let pc=0,halted=false;const MAX=500;let steps=0;
   while(pc<lines.length&&!halted&&steps++<MAX){
-    const tokens=lines[pc].split(/\s+/);
+    const tokens=lines[pc].split(/\s+/).map(tok=>selfId&&tok.toLowerCase()==='this'?selfId:tok);
     const cmd=tokens[0].toLowerCase();
     if(cmd==='if'){
       if(!evalCond(tokens.slice(1).join(' '))){
