@@ -1090,13 +1090,23 @@ go card 3</div>
       <div class="cs-section-title">Sound</div>
       <table class="cs-table"><tbody>
         <tr><td>play sound &lt;name&gt;</td><td>play a sound</td></tr>
+        <tr><td>wait until done</td><td>pause until sounds finish</td></tr>
+        <tr><td>wait &lt;n&gt; seconds</td><td>pause for n seconds</td></tr>
       </tbody></table>
       <div class="cs-block" style="margin-top:4px">play sound click
 play sound beep
 play sound chime
 play sound whoosh
 play sound drum
-play sound glass</div>
+play sound glass
+
+-- play a sound then go next after it finishes:
+play sound glass
+wait until done
+go next
+
+-- wait 2 seconds then go next:
+wait 2 seconds</div>
     </div>
 
     <div>
@@ -1107,6 +1117,25 @@ play sound glass</div>
       </tbody></table>
       <div class="cs-block" style="margin-top:4px">show button myRedBtn
 hide button myRedBtn</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Button Animation</div>
+      <table class="cs-table"><tbody>
+        <tr><td>move &lt;id&gt; &lt;dir&gt; by &lt;n&gt; in &lt;secs&gt;</td><td>slide button</td></tr>
+        <tr><td></td><td>dir: left right up down</td></tr>
+        <tr><td></td><td>n: pixels or % of size</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">-- slide right 40px over 2 seconds:
+move myBtn right by 40 in 2 seconds
+
+-- slide left 50% of button width:
+move myBtn left by 50% in 1 seconds
+
+-- animate then go next:
+move myBtn up by 100 in 0.5 seconds
+wait until done
+go next</div>
     </div>
 
     <div>
@@ -2871,6 +2900,7 @@ function triggerEffect(effectName) {
 // SOUND ENGINE (Web Audio API)
 // ============================================================
 let audioCtx = null;
+const activeSounds = new Set(); // promises for currently-playing sounds
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2878,12 +2908,19 @@ function getAudioCtx() {
 }
 
 function playSound(name) {
-  // Custom uploaded sound
+  let resolve;
+  const p = new Promise(r => { resolve = r; });
+  activeSounds.add(p);
+  p.finally(() => activeSounds.delete(p));
+  const done = () => resolve();
+
   if (name && customSounds[name]) {
     try {
       const audio = new Audio(customSounds[name].dataUrl);
-      audio.play().catch(() => {});
-    } catch(e) {}
+      audio.addEventListener('ended', done);
+      audio.addEventListener('error', done);
+      audio.play().catch(done);
+    } catch(e) { done(); }
     return;
   }
   try {
@@ -2901,6 +2938,7 @@ function playSound(name) {
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         osc.start(now); osc.stop(now + 0.1);
+        osc.onended = done;
       },
       beep: () => {
         const osc = ctx.createOscillator();
@@ -2911,8 +2949,11 @@ function playSound(name) {
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
         osc.start(now); osc.stop(now + 0.2);
+        osc.onended = done;
       },
       chime: () => {
+        let rem = 4;
+        const chDone = () => { if (--rem === 0) done(); };
         [523, 659, 784, 1047].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -2923,6 +2964,7 @@ function playSound(name) {
           gain.gain.linearRampToValueAtTime(0.25, now + i * 0.15 + 0.03);
           gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.6);
           osc.start(now + i * 0.15); osc.stop(now + i * 0.15 + 0.7);
+          osc.onended = chDone;
         });
       },
       whoosh: () => {
@@ -2940,6 +2982,7 @@ function playSound(name) {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
         src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
         src.start(now); src.stop(now + 0.35);
+        src.onended = done;
       },
       drum: () => {
         const buf = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
@@ -2959,6 +3002,10 @@ function playSound(name) {
         osc.connect(gainO); gainO.connect(ctx.destination);
         src.start(now); src.stop(now + 0.2);
         osc.start(now); osc.stop(now + 0.15);
+        let remD = 2;
+        const drumDone = () => { if (--remD === 0) done(); };
+        src.onended = drumDone;
+        osc.onended = drumDone;
       },
       glass: () => {
         const osc = ctx.createOscillator();
@@ -2969,11 +3016,13 @@ function playSound(name) {
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
         osc.start(now); osc.stop(now + 1.3);
+        osc.onended = done;
       }
     };
 
     if (sounds[name]) sounds[name]();
-  } catch(e) {}
+    else done();
+  } catch(e) { done(); }
 }
 
 // ============================================================
@@ -2983,7 +3032,7 @@ function playSound(name) {
 // Runtime button visibility state for play mode (nameId -> { el, visible })
 const playBtnState = new Map();
 
-function runScript(scriptText) {
+async function runScript(scriptText) {
   if (!scriptText || !scriptText.trim()) return;
 
   const lines = scriptText.split('\n')
@@ -3035,6 +3084,18 @@ function runScript(scriptText) {
     if (cmd === 'end') { pc++; continue; }
     if (cmd === 'stop') { halted = true; break; }
 
+    if (cmd === 'wait') {
+      const sub = (tokens[1] || '').toLowerCase();
+      if (sub === 'until' && (tokens[2] || '').toLowerCase() === 'done') {
+        if (activeSounds.size > 0) await Promise.all([...activeSounds]);
+      } else {
+        const secs = parseFloat(tokens[1]);
+        if (!isNaN(secs) && secs > 0) await new Promise(r => setTimeout(r, secs * 1000));
+      }
+      pc++;
+      continue;
+    }
+
     execScriptCmd(tokens);
     pc++;
   }
@@ -3082,7 +3143,59 @@ function execScriptCmd(tokens) {
       if (arg1 === 'effect') triggerEffect(tokens[2] || '');
       break;
     }
+    case 'move': {
+      // move <id> <left|right|up|down> by <amount[%]> in <seconds> [seconds]
+      const dir = (tokens[2] || '').toLowerCase();
+      if (dir === 'left' || dir === 'right' || dir === 'up' || dir === 'down') {
+        const amtStr  = tokens[4] || '0'; // tokens[3] = 'by'
+        const dur     = parseFloat(tokens[6]) || 1; // tokens[5] = 'in'
+        animateButtonMove(tokens[1], dir, amtStr, dur);
+      }
+      break;
+    }
   }
+}
+
+function animateButtonMove(id, direction, amtStr, durationSecs) {
+  let resolve;
+  const p = new Promise(r => { resolve = r; });
+  activeSounds.add(p);
+  p.finally(() => activeSounds.delete(p));
+
+  const state = playBtnState.get(id);
+  if (!state) { resolve(); return; }
+
+  const el = state.el;
+  const durationMs = Math.max(0, durationSecs) * 1000;
+  const isPercent  = String(amtStr).endsWith('%');
+  const amtNum     = parseFloat(amtStr) || 0;
+
+  let dx = 0, dy = 0;
+  if (direction === 'left')  dx = -(isPercent ? (amtNum / 100) * el.offsetWidth  : amtNum);
+  if (direction === 'right') dx =  (isPercent ? (amtNum / 100) * el.offsetWidth  : amtNum);
+  if (direction === 'up')    dy = -(isPercent ? (amtNum / 100) * el.offsetHeight : amtNum);
+  if (direction === 'down')  dy =  (isPercent ? (amtNum / 100) * el.offsetHeight : amtNum);
+
+  const startLeft = parseFloat(el.style.left) || 0;
+  const startTop  = parseFloat(el.style.top)  || 0;
+
+  if (durationMs <= 0) {
+    el.style.left = (startLeft + dx) + 'px';
+    el.style.top  = (startTop  + dy) + 'px';
+    resolve();
+    return;
+  }
+
+  const startTime = performance.now();
+  function step(now) {
+    const t    = Math.min((now - startTime) / durationMs, 1);
+    const ease = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // smooth ease-in-out
+    el.style.left = (startLeft + dx * ease) + 'px';
+    el.style.top  = (startTop  + dy * ease) + 'px';
+    if (t < 1) requestAnimationFrame(step);
+    else resolve();
+  }
+  requestAnimationFrame(step);
 }
 
 function evalScriptCondition(text) {
@@ -3574,13 +3687,14 @@ const ctx=document.getElementById('c').getContext('2d');
 const btns=document.getElementById('btns');
 const txtlayer=document.getElementById('txtlayer');
 const container=document.getElementById('container');
-let ac=null;
+let ac=null,activeSounds=new Set();
 function getAC(){if(!ac)ac=new AudioContext();return ac;}
 function playSound(n){
-  if(n&&customSounds[n]){try{new Audio(customSounds[n].dataUrl).play();}catch(e){}return;}
+  let res;const p=new Promise(r=>{res=r;});activeSounds.add(p);p.finally(()=>activeSounds.delete(p));const done=()=>res();
+  if(n&&customSounds[n]){try{const a=new Audio(customSounds[n].dataUrl);a.addEventListener('ended',done);a.addEventListener('error',done);a.play().catch(done);}catch(e){done();}return;}
   try{const c=getAC(),now=c.currentTime;
-  const s={click:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(1200,now);o.frequency.exponentialRampToValueAtTime(400,now+.08);g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+.08);o.start(now);o.stop(now+.1);},beep:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='square';o.frequency.value=880;g.gain.setValueAtTime(.2,now);g.gain.exponentialRampToValueAtTime(.001,now+.2);o.start(now);o.stop(now+.2);},chime:()=>{[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;g.gain.setValueAtTime(0,now+i*.15);g.gain.linearRampToValueAtTime(.25,now+i*.15+.03);g.gain.exponentialRampToValueAtTime(.001,now+i*.15+.6);o.start(now+i*.15);o.stop(now+i*.15+.7);});},whoosh:()=>{const b=c.createBuffer(1,c.sampleRate*.3,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s2.buffer=b;f.type='bandpass';f.frequency.setValueAtTime(4000,now);f.frequency.exponentialRampToValueAtTime(200,now+.3);g.gain.setValueAtTime(.4,now);g.gain.exponentialRampToValueAtTime(.001,now+.3);s2.connect(f);f.connect(g);g.connect(c.destination);s2.start(now);s2.stop(now+.35);},drum:()=>{const b=c.createBuffer(1,c.sampleRate*.2,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),o=c.createOscillator(),gn=c.createGain(),go=c.createGain();s2.buffer=b;o.frequency.setValueAtTime(150,now);o.frequency.exponentialRampToValueAtTime(50,now+.1);gn.gain.setValueAtTime(.8,now);gn.gain.exponentialRampToValueAtTime(.001,now+.15);go.gain.setValueAtTime(.8,now);go.gain.exponentialRampToValueAtTime(.001,now+.12);s2.connect(gn);gn.connect(c.destination);o.connect(go);go.connect(c.destination);s2.start(now);s2.stop(now+.2);o.start(now);o.stop(now+.15);},glass:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=2000;g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+1.2);o.start(now);o.stop(now+1.3);}};
-  if(s[n])s[n]();}catch(e){}}
+  const s={click:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(1200,now);o.frequency.exponentialRampToValueAtTime(400,now+.08);g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+.08);o.start(now);o.stop(now+.1);o.onended=done;},beep:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='square';o.frequency.value=880;g.gain.setValueAtTime(.2,now);g.gain.exponentialRampToValueAtTime(.001,now+.2);o.start(now);o.stop(now+.2);o.onended=done;},chime:()=>{let r=4;const cd=()=>{if(--r===0)done();};[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;g.gain.setValueAtTime(0,now+i*.15);g.gain.linearRampToValueAtTime(.25,now+i*.15+.03);g.gain.exponentialRampToValueAtTime(.001,now+i*.15+.6);o.start(now+i*.15);o.stop(now+i*.15+.7);o.onended=cd;});},whoosh:()=>{const b=c.createBuffer(1,c.sampleRate*.3,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s2.buffer=b;f.type='bandpass';f.frequency.setValueAtTime(4000,now);f.frequency.exponentialRampToValueAtTime(200,now+.3);g.gain.setValueAtTime(.4,now);g.gain.exponentialRampToValueAtTime(.001,now+.3);s2.connect(f);f.connect(g);g.connect(c.destination);s2.start(now);s2.stop(now+.35);s2.onended=done;},drum:()=>{const b=c.createBuffer(1,c.sampleRate*.2,c.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const s2=c.createBufferSource(),o=c.createOscillator(),gn=c.createGain(),go=c.createGain();s2.buffer=b;o.frequency.setValueAtTime(150,now);o.frequency.exponentialRampToValueAtTime(50,now+.1);gn.gain.setValueAtTime(.8,now);gn.gain.exponentialRampToValueAtTime(.001,now+.15);go.gain.setValueAtTime(.8,now);go.gain.exponentialRampToValueAtTime(.001,now+.12);s2.connect(gn);gn.connect(c.destination);o.connect(go);go.connect(c.destination);s2.start(now);s2.stop(now+.2);o.start(now);o.stop(now+.15);let rd=2;const dd=()=>{if(--rd===0)done();};s2.onended=dd;o.onended=dd;},glass:()=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=2000;g.gain.setValueAtTime(.3,now);g.gain.exponentialRampToValueAtTime(.001,now+1.2);o.start(now);o.stop(now+1.3);o.onended=done;}};
+  if(s[n])s[n]();else done();}catch(e){done();}}
 function triggerFX(name){
   if(!name)return;
   const cls='fx-'+name;
@@ -3633,7 +3747,7 @@ function show(i){
   if(card.script&&card.script.trim())runScript(card.script);
 }
 const btnState=new Map();
-function runScript(src){
+async function runScript(src){
   const lines=src.split('\\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('--'));
   let pc=0,halted=false;const MAX=500;let steps=0;
   while(pc<lines.length&&!halted&&steps++<MAX){
@@ -3649,6 +3763,12 @@ function runScript(src){
     if(cmd==='else'){let d=1;pc++;while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}pc++;}continue;}
     if(cmd==='end'){pc++;continue;}
     if(cmd==='stop'){halted=true;break;}
+    if(cmd==='wait'){
+      const sub=(tokens[1]||'').toLowerCase();
+      if(sub==='until'&&(tokens[2]||'').toLowerCase()==='done'){if(activeSounds.size>0)await Promise.all([...activeSounds]);}
+      else{const secs=parseFloat(tokens[1]);if(!isNaN(secs)&&secs>0)await new Promise(r=>setTimeout(r,secs*1000));}
+      pc++;continue;
+    }
     execCmd(tokens);pc++;
   }
 }
@@ -3675,6 +3795,23 @@ function execCmd(t){
     if(s){s.el.style.visibility='hidden';s.visible=false;}
   }else if(cmd==='play'&&t[1]&&t[1].toLowerCase()==='sound'){playSound(t[2]);}
   else if(cmd==='trigger'&&t[1]&&t[1].toLowerCase()==='effect'){triggerFX(t[2]);}
+  else if(cmd==='move'){const dir=(t[2]||'').toLowerCase();if(dir==='left'||dir==='right'||dir==='up'||dir==='down')animMove(t[1],dir,t[4]||'0',parseFloat(t[6])||1);}
+}
+function animMove(id,dir,amtStr,durSecs){
+  let res;const p=new Promise(r=>{res=r;});activeSounds.add(p);p.finally(()=>activeSounds.delete(p));
+  const st=btnState.get(id);if(!st){res();return;}
+  const el=st.el,ms=Math.max(0,durSecs)*1000;
+  const isPct=String(amtStr).endsWith('%'),amt=parseFloat(amtStr)||0;
+  let dx=0,dy=0;
+  if(dir==='left')dx=-(isPct?(amt/100)*el.offsetWidth:amt);
+  else if(dir==='right')dx=(isPct?(amt/100)*el.offsetWidth:amt);
+  else if(dir==='up')dy=-(isPct?(amt/100)*el.offsetHeight:amt);
+  else if(dir==='down')dy=(isPct?(amt/100)*el.offsetHeight:amt);
+  const sl=parseFloat(el.style.left)||0,st2=parseFloat(el.style.top)||0;
+  if(ms<=0){el.style.left=(sl+dx)+'px';el.style.top=(st2+dy)+'px';res();return;}
+  const t0=performance.now();
+  function step(now){const t=Math.min((now-t0)/ms,1),e=t<0.5?2*t*t:-1+(4-2*t)*t;el.style.left=(sl+dx*e)+'px';el.style.top=(st2+dy*e)+'px';if(t<1)requestAnimationFrame(step);else res();}
+  requestAnimationFrame(step);
 }
 function evalCond(text){
   const t=text.trim().split(/\s+/);
