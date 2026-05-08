@@ -898,6 +898,103 @@
     color: var(--shadow);
     font-style: italic;
   }
+
+  /* ===== VARIABLES PANEL ===== */
+  #var-panel {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    z-index: 400;
+    width: 250px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    box-shadow: 3px 3px 0 var(--black);
+  }
+  #var-panel.visible { display: block; }
+  #var-panel-titlebar {
+    background: var(--accent);
+    color: var(--white);
+    font-size: 11px;
+    padding: 2px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  #var-panel-close {
+    background: none; border: none; color: var(--white);
+    cursor: pointer; font-size: 12px; padding: 0 2px; line-height: 1;
+  }
+  #var-panel-close:hover { color: #ffcccc; }
+  #var-panel-body { padding: 6px 8px; }
+  .var-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .var-name-label {
+    font-size: 11px;
+    min-width: 80px;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--accent);
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+  .var-val-input {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    border: 1px inset var(--bg);
+    background: var(--white);
+    padding: 1px 4px;
+    width: 0;
+    min-width: 0;
+  }
+  .var-del-btn {
+    background: none; border: none; cursor: pointer;
+    color: #aa0000; font-size: 13px; padding: 0 2px; line-height: 1;
+    flex-shrink: 0;
+  }
+  .var-del-btn:hover { color: #ff0000; }
+  #var-panel-empty {
+    color: var(--shadow);
+    font-size: 10px;
+    text-align: center;
+    padding: 10px 4px;
+    font-style: italic;
+  }
+  #var-panel-add-btn {
+    width: 100%;
+    margin-top: 6px;
+    background: var(--btn-face);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 3px;
+  }
+  #var-panel-add-btn:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
 </style>
 </head>
 <body>
@@ -1061,7 +1158,8 @@
   <span>🔧 Tool: <b id="status-tool">pointer</b></span>
   <span>📐 Pos: <b id="status-pos">0, 0</b></span>
   <span style="margin-left:auto">HyperWeb Stack Author v1.0</span>
-  <button onclick="toggleCheatsheet()" id="cheatsheet-toggle-btn" style="margin-left:10px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">? Script Help</button>
+  <button onclick="toggleVarPanel()" id="var-panel-toggle-btn" style="margin-left:6px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">{} Variables</button>
+  <button onclick="toggleCheatsheet()" id="cheatsheet-toggle-btn" style="margin-left:6px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">? Script Help</button>
 </div>
 
 <!-- SCRIPT CHEAT SHEET PANEL -->
@@ -1178,6 +1276,28 @@ trigger effect negative</div>
     </div>
 
     <div>
+      <div class="cs-section-title">Variables</div>
+      <div class="cs-note" style="margin-bottom:4px">Define variables in the <b>{} Variables</b> panel. Scripts read and write them during play.</div>
+      <div class="cs-block">-- assign a value
+score = 0
+score = score + 10
+lives = lives - 1
+damage = attack * 2
+
+-- use in conditions
+if score > 100
+  go card bonus_card
+end
+if lives == 0
+  go card game_over
+end
+if score != 0
+  show button reward_btn
+end</div>
+      <div class="cs-note" style="margin-top:4px">Operators: + &nbsp;- &nbsp;* &nbsp;/ &nbsp;(one per line)<br>Comparisons: &gt; &nbsp;&lt; &nbsp;&gt;= &nbsp;&lt;= &nbsp;== &nbsp;!=</div>
+    </div>
+
+    <div>
       <div class="cs-section-title">Conditionals</div>
       <div class="cs-note" style="margin-bottom:4px">Blocks end with <b>end</b>. Optional <b>else</b> branch.</div>
       <div class="cs-block">if this is visible
@@ -1197,6 +1317,18 @@ if card is not card_z
 end</div>
     </div>
 
+  </div>
+</div>
+
+<!-- VARIABLES PANEL -->
+<div id="var-panel">
+  <div id="var-panel-titlebar">
+    <span>Global Variables</span>
+    <button id="var-panel-close" onclick="toggleVarPanel()">✕</button>
+  </div>
+  <div id="var-panel-body">
+    <div id="var-panel-list"></div>
+    <button id="var-panel-add-btn" onclick="openAddVarDialog()">+ Add Variable</button>
   </div>
 </div>
 
@@ -1346,6 +1478,35 @@ end</div>
   </div>
 </div>
 
+<!-- ADD VARIABLE DIALOG -->
+<div class="dialog-backdrop" id="add-var-dialog">
+  <div class="dialog" style="width:300px">
+    <div class="dialog-titlebar">
+      <span>Add Variable</span>
+      <button class="dialog-close" onclick="closeDialog('add-var-dialog')">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-row">
+        <label>Name:</label>
+        <input type="text" id="add-var-name" placeholder="score" maxlength="32"
+          style="font-family:'Share Tech Mono',monospace"
+          onkeydown="if(event.key==='Enter')commitAddVar()">
+      </div>
+      <div class="dialog-row">
+        <label>Initial value:</label>
+        <input type="number" id="add-var-val" value="0"
+          style="font-family:'Share Tech Mono',monospace;width:100px"
+          onkeydown="if(event.key==='Enter')commitAddVar()">
+      </div>
+      <div style="font-size:10px;color:var(--shadow);margin-top:4px">Names: letters, digits, underscore. No spaces.</div>
+    </div>
+    <div class="dialog-footer">
+      <button class="win-btn default" onclick="commitAddVar()">OK</button>
+      <button class="win-btn" onclick="closeDialog('add-var-dialog')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // CARD DIMENSIONS
@@ -1384,6 +1545,11 @@ let fontSize = 20;
 let selectedTextId = null;
 let drawingOnButton = null;  // button obj if drawing on a canvas button, else null
 let activeSurface = null;    // { ctx, w, h, ox, oy, button } for current drawing surface
+
+// Global variables: definitions (name -> initial number) persisted to file
+let stackVarDefs = {};
+// Runtime values, live only during play mode
+let stackVars = {};
 
 // Custom uploaded sounds: id -> { name, dataUrl }
 const customSounds = {};
@@ -3104,6 +3270,12 @@ async function runScript(scriptText, selfId) {
     if (cmd === 'end') { pc++; continue; }
     if (cmd === 'stop') { halted = true; break; }
 
+    // Variable assignment: varName = expr
+    if (tokens[1] === '=' && /^[a-zA-Z_]\w*$/.test(tokens[0])) {
+      stackVars[tokens[0]] = evalExpr(tokens.slice(2));
+      pc++; continue;
+    }
+
     if (cmd === 'wait') {
       const sub = (tokens[1] || '').toLowerCase();
       if (sub === 'until' && (tokens[2] || '').toLowerCase() === 'done') {
@@ -3220,6 +3392,19 @@ function animateButtonMove(id, direction, amtStr, durationSecs) {
 
 function evalScriptCondition(text) {
   const t = text.trim().split(/\s+/);
+  // Numeric comparison: <var|num> <op> <var|num>
+  const numOps = ['>', '<', '>=', '<=', '==', '!='];
+  if (t.length >= 3 && numOps.includes(t[1])) {
+    const a = resolveVar(t[0]), b = resolveVar(t[2]);
+    switch (t[1]) {
+      case '>':  return a > b;
+      case '<':  return a < b;
+      case '>=': return a >= b;
+      case '<=': return a <= b;
+      case '==': return a === b;
+      case '!=': return a !== b;
+    }
+  }
   // <buttonId> is [not] visible
   if (t.length >= 3 && t[1].toLowerCase() === 'is') {
     const negated = t[2].toLowerCase() === 'not';
@@ -3253,6 +3438,7 @@ const playButtons = document.getElementById('play-buttons');
 
 async function enterPlayMode() {
   saveCurrentCardImage();
+  stackVars = Object.assign({}, stackVarDefs);
   playCardIdx = currentCardIdx;
   document.getElementById('play-overlay').classList.add('active');
   await renderPlayCard(playCardIdx);
@@ -3390,6 +3576,111 @@ function projectNameKey(e) {
   }
 }
 
+// ============================================================
+// GLOBAL VARIABLES PANEL
+// ============================================================
+function toggleVarPanel() {
+  const panel = document.getElementById('var-panel');
+  const btn = document.getElementById('var-panel-toggle-btn');
+  const visible = panel.classList.toggle('visible');
+  btn.style.borderTopColor    = visible ? 'var(--shadow)' : 'var(--highlight)';
+  btn.style.borderLeftColor   = visible ? 'var(--shadow)' : 'var(--highlight)';
+  btn.style.borderBottomColor = visible ? 'var(--highlight)' : 'var(--shadow)';
+  btn.style.borderRightColor  = visible ? 'var(--highlight)' : 'var(--shadow)';
+}
+
+function renderVarPanel() {
+  const list = document.getElementById('var-panel-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const names = Object.keys(stackVarDefs);
+  if (names.length === 0) {
+    const empty = document.createElement('div');
+    empty.id = 'var-panel-empty';
+    empty.textContent = 'No variables yet. Click + Add Variable.';
+    list.appendChild(empty);
+    return;
+  }
+  names.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'var-row';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'var-name-label';
+    lbl.title = name;
+    lbl.textContent = name;
+
+    const inp = document.createElement('input');
+    inp.className = 'var-val-input';
+    inp.type = 'number';
+    inp.value = stackVarDefs[name];
+    inp.addEventListener('change', () => { stackVarDefs[name] = parseFloat(inp.value) || 0; });
+    inp.addEventListener('keydown', e => e.stopPropagation());
+
+    const del = document.createElement('button');
+    del.className = 'var-del-btn';
+    del.textContent = '✕';
+    del.title = 'Delete variable';
+    del.addEventListener('click', () => deleteVar(name));
+
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+
+function openAddVarDialog() {
+  document.getElementById('add-var-name').value = '';
+  document.getElementById('add-var-val').value = '0';
+  openDialog('add-var-dialog');
+  setTimeout(() => document.getElementById('add-var-name').focus(), 50);
+}
+
+function commitAddVar() {
+  const name = (document.getElementById('add-var-name').value || '').trim();
+  if (!name) { alert('Variable name is required.'); return; }
+  if (!/^[a-zA-Z_]\w*$/.test(name)) {
+    alert('Name must start with a letter or underscore and contain only letters, digits, or underscores.');
+    return;
+  }
+  const val = parseFloat(document.getElementById('add-var-val').value);
+  stackVarDefs[name] = isNaN(val) ? 0 : val;
+  closeDialog('add-var-dialog');
+  renderVarPanel();
+}
+
+function deleteVar(name) {
+  delete stackVarDefs[name];
+  renderVarPanel();
+}
+
+// Resolve a token to a number: literal or variable lookup
+function resolveVar(token) {
+  if (token === undefined || token === null) return 0;
+  const n = parseFloat(token);
+  if (!isNaN(n)) return n;
+  const v = stackVars[token];
+  if (v !== undefined) return parseFloat(v) || 0;
+  return 0;
+}
+
+// Evaluate simple arithmetic expression: single value or <a op b>
+function evalExpr(tokens) {
+  if (!tokens || tokens.length === 0) return 0;
+  if (tokens.length >= 3) {
+    const a = resolveVar(tokens[0]);
+    const b = resolveVar(tokens[2]);
+    switch (tokens[1]) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return b !== 0 ? a / b : 0;
+    }
+  }
+  return resolveVar(tokens[0]);
+}
+
 function toggleCheatsheet() {
   const panel = document.getElementById('script-cheatsheet');
   const btn = document.getElementById('cheatsheet-toggle-btn');
@@ -3413,6 +3704,7 @@ function saveStack() {
     version: 2,
     projectName,
     customSounds,
+    variables: stackVarDefs,
     stack: stack.map(card => ({
       id: card.id,
       name: card.name,
@@ -3445,6 +3737,8 @@ async function loadStackFile(e) {
     if (data.customSounds) {
       Object.assign(customSounds, data.customSounds);
     }
+    stackVarDefs = data.variables && typeof data.variables === 'object' ? data.variables : {};
+    renderVarPanel();
     stack = data.stack.map(card => ({
       id: card.id || Date.now(),
       name: card.name || 'Card',
@@ -3521,6 +3815,7 @@ function saveToBrowser() {
     projectName,
     savedAt: new Date().toISOString(),
     customSounds,
+    variables: stackVarDefs,
     stack: stack.map(card => ({
       id: card.id, name: card.name, script: card.script || '',
       imageData: card.imageData,
@@ -3639,6 +3934,8 @@ async function loadFromBrowserSelected() {
     if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid stack data');
     if (data.projectName) { projectName = data.projectName; updateProjectNameDisplay(); }
     if (data.customSounds) Object.assign(customSounds, data.customSounds);
+    stackVarDefs = data.variables && typeof data.variables === 'object' ? data.variables : {};
+    renderVarPanel();
     stack = data.stack.map(card => ({
       id: card.id || Date.now(),
       name: card.name || 'Card',
@@ -3666,6 +3963,7 @@ async function loadFromBrowserSelected() {
 function exportStack() {
   saveCurrentCardImage();
   const exportCustomSounds = JSON.stringify(customSounds);
+  const exportVarDefs = JSON.stringify(stackVarDefs);
   const stackData = JSON.stringify(stack.map(c => ({
     name: c.name, script: c.script || '',
     imageData: c.imageData,
@@ -3702,6 +4000,8 @@ canvas{display:block;width:100%;height:100%}
 <script>
 const stack=${stackData};
 const customSounds=${exportCustomSounds};
+const varDefs=${exportVarDefs};
+let gvars=Object.assign({},varDefs);
 let idx=0;
 const ctx=document.getElementById('c').getContext('2d');
 const btns=document.getElementById('btns');
@@ -3767,6 +4067,8 @@ function show(i){
   if(card.script&&card.script.trim())runScript(card.script);
 }
 const btnState=new Map();
+function resV(tok){if(tok===undefined)return 0;const n=parseFloat(tok);if(!isNaN(n))return n;const v=gvars[tok];return v!==undefined?parseFloat(v)||0:0;}
+function exprV(toks){if(!toks||!toks.length)return 0;if(toks.length>=3){const a=resV(toks[0]),b=resV(toks[2]);switch(toks[1]){case'+':return a+b;case'-':return a-b;case'*':return a*b;case'/':return b!==0?a/b:0;}}return resV(toks[0]);}
 async function runScript(src,selfId){
   const lines=src.split('\\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('--'));
   let pc=0,halted=false;const MAX=500;let steps=0;
@@ -3783,6 +4085,7 @@ async function runScript(src,selfId){
     if(cmd==='else'){let d=1;pc++;while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}pc++;}continue;}
     if(cmd==='end'){pc++;continue;}
     if(cmd==='stop'){halted=true;break;}
+    if(tokens[1]==='='&&/^[a-zA-Z_]\w*$/.test(tokens[0])){gvars[tokens[0]]=exprV(tokens.slice(2));pc++;continue;}
     if(cmd==='wait'){
       const sub=(tokens[1]||'').toLowerCase();
       if(sub==='until'&&(tokens[2]||'').toLowerCase()==='done'){if(activeSounds.size>0)await Promise.all([...activeSounds]);}
@@ -3835,6 +4138,8 @@ function animMove(id,dir,amtStr,durSecs){
 }
 function evalCond(text){
   const t=text.trim().split(/\s+/);
+  const numOps=['>', '<','>=','<=','==','!='];
+  if(t.length>=3&&numOps.includes(t[1])){const a=resV(t[0]),b=resV(t[2]);switch(t[1]){case'>':return a>b;case'<':return a<b;case'>=':return a>=b;case'<=':return a<=b;case'==':return a===b;case'!=':return a!==b;}return false;}
   if(t.length>=3&&t[1].toLowerCase()==='is'){
     const neg=t[2].toLowerCase()==='not';
     const prop=neg?(t[3]||'').toLowerCase():(t[2]||'').toLowerCase();
@@ -3849,7 +4154,7 @@ function evalCond(text){
   }
   return false;
 }
-show(0);
+gvars=Object.assign({},varDefs);show(0);
 <\/script></body></html>`;
 
   const blob = new Blob([html], {type:'text/html'});
