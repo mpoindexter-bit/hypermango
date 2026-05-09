@@ -618,6 +618,54 @@
     gap: 6px;
   }
 
+  /* ===== SAY / YESNO DIALOGS (play mode) ===== */
+  #play-say-backdrop,
+  #play-yesno-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 700;
+    align-items: center;
+    justify-content: center;
+  }
+  #play-say-backdrop.active,
+  #play-yesno-backdrop.active { display: flex; }
+  #play-say-box,
+  #play-yesno-box {
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    box-shadow: 4px 4px 0 var(--black);
+    width: 340px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #play-say-titlebar,
+  #play-yesno-titlebar {
+    background: var(--accent);
+    color: var(--white);
+    font-size: 11px;
+    padding: 3px 8px;
+    user-select: none;
+  }
+  #play-say-body,
+  #play-yesno-body {
+    padding: 16px 14px 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #play-say-footer,
+  #play-yesno-footer {
+    padding: 6px 10px 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
   /* ===== PLAY MESSAGE BAR ===== */
   #play-msg-bar {
     display: none;
@@ -1356,15 +1404,23 @@ trigger effect negative</div>
     </div>
 
     <div>
-      <div class="cs-section-title">Ask / Input</div>
-      <div class="cs-note" style="margin-bottom:4px"><b>ask</b> pauses the script and shows an input dialog. The user's response is stored in the built-in variable <b>answer</b>.</div>
-      <div class="cs-block">ask "What is your name?"
+      <div class="cs-section-title">Dialogs</div>
+      <table class="cs-table"><tbody>
+        <tr><td>say "text"</td><td>show message, OK button</td></tr>
+        <tr><td>ask "prompt"</td><td>text input → answer</td></tr>
+        <tr><td>yesno "question"</td><td>Yes=1, No=0 → answer</td></tr>
+      </tbody></table>
+      <div class="cs-block" style="margin-top:4px">-- simple message:
+say "Level complete!"
+
+-- text input:
+ask "What is your name?"
 name = answer
 
-ask "Enter a number:"
-n = answer
-if n == "42"
-  go card secret
+-- yes / no:
+yesno "Play again?"
+if answer == 1
+  go card start
 end</div>
     </div>
 
@@ -1479,6 +1535,25 @@ end</div>
     </div>
     <div id="play-ask-footer">
       <button class="win-btn default" id="play-ask-ok">OK</button>
+    </div>
+  </div>
+</div>
+<div id="play-say-backdrop">
+  <div id="play-say-box">
+    <div id="play-say-titlebar">Message</div>
+    <div id="play-say-body"></div>
+    <div id="play-say-footer">
+      <button class="win-btn default" id="play-say-ok">OK</button>
+    </div>
+  </div>
+</div>
+<div id="play-yesno-backdrop">
+  <div id="play-yesno-box">
+    <div id="play-yesno-titlebar">Question</div>
+    <div id="play-yesno-body"></div>
+    <div id="play-yesno-footer">
+      <button class="win-btn" id="play-yesno-no">No</button>
+      <button class="win-btn default" id="play-yesno-yes">Yes</button>
     </div>
   </div>
 </div>
@@ -3402,6 +3477,56 @@ function showAskDialog(promptText) {
   });
 }
 
+function showSayDialog(promptText) {
+  return new Promise(resolve => {
+    const backdrop = document.getElementById('play-say-backdrop');
+    const body = document.getElementById('play-say-body');
+    const okBtn = document.getElementById('play-say-ok');
+    if (!backdrop) { resolve(); return; }
+    body.textContent = promptText;
+    backdrop.classList.add('active');
+    setTimeout(() => okBtn.focus(), 60);
+    function finish() {
+      backdrop.classList.remove('active');
+      okBtn.removeEventListener('click', finish);
+      document.removeEventListener('keydown', onKey);
+      resolve();
+    }
+    function onKey(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } }
+    okBtn.addEventListener('click', finish);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+function showYesNoDialog(promptText) {
+  return new Promise(resolve => {
+    const backdrop = document.getElementById('play-yesno-backdrop');
+    const body = document.getElementById('play-yesno-body');
+    const yesBtn = document.getElementById('play-yesno-yes');
+    const noBtn = document.getElementById('play-yesno-no');
+    if (!backdrop) { resolve(0); return; }
+    body.textContent = promptText;
+    backdrop.classList.add('active');
+    setTimeout(() => yesBtn.focus(), 60);
+    function finish(val) {
+      backdrop.classList.remove('active');
+      yesBtn.removeEventListener('click', onYes);
+      noBtn.removeEventListener('click', onNo);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onYes() { finish(1); }
+    function onNo() { finish(0); }
+    function onKey(e) {
+      if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') { e.preventDefault(); finish(1); }
+      if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') { e.preventDefault(); finish(0); }
+    }
+    yesBtn.addEventListener('click', onYes);
+    noBtn.addEventListener('click', onNo);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 // Tokenize a script line, respecting "quoted strings"
 function tokenizeLine(line) {
   const tokens = [];
@@ -3534,6 +3659,24 @@ async function runScript(scriptText, selfId) {
         : promptTokens.map(t => String(resolveValue(t))).join(' ');
       const answer = await showAskDialog(promptStr);
       stackVars['answer'] = answer;
+      pc++; continue;
+    }
+
+    if (cmd === 'say') {
+      const promptTokens = tokens.slice(1);
+      const promptStr = promptTokens.length === 1
+        ? String(resolveValue(promptTokens[0]))
+        : promptTokens.map(t => String(resolveValue(t))).join(' ');
+      await showSayDialog(promptStr);
+      pc++; continue;
+    }
+
+    if (cmd === 'yesno') {
+      const promptTokens = tokens.slice(1);
+      const promptStr = promptTokens.length === 1
+        ? String(resolveValue(promptTokens[0]))
+        : promptTokens.map(t => String(resolveValue(t))).join(' ');
+      stackVars['answer'] = await showYesNoDialog(promptStr);
       pc++; continue;
     }
 
@@ -4259,15 +4402,18 @@ canvas{display:block;width:100%;height:100%}
 .fx-negative{animation:cardNeg 0.6s steps(1)}
 .fx-flash{animation:cardFlash 0.5s ease-in-out}
 .fx-wobble{animation:cardWobble 0.5s ease-in-out}
-#_ask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;align-items:center;justify-content:center}
-#_ask.active{display:flex}
-#_askbox{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;box-shadow:4px 4px 0 #000;width:320px;font-family:monospace}
-#_asktitle{background:#000080;color:#fff;font-size:11px;padding:3px 8px}
+#_ask,#_say,#_yesno{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;align-items:center;justify-content:center}
+#_ask.active,#_say.active,#_yesno.active{display:flex}
+#_askbox,#_saybox,#_ynbox{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;box-shadow:4px 4px 0 #000;width:320px;font-family:monospace}
+#_asktitle,#_saytitle,#_yntitle{background:#000080;color:#fff;font-size:11px;padding:3px 8px}
 #_askbody{padding:14px 12px 8px;display:flex;flex-direction:column;gap:10px}
 #_askprompt{font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
 #_askinput{font-family:monospace;font-size:13px;border:2px inset #c0c0c0;background:#fff;padding:4px 6px;width:100%;outline:none;box-sizing:border-box}
 #_askfoot{padding:4px 8px 10px;display:flex;justify-content:flex-end}
-#_askok{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;font-family:monospace;font-size:12px;padding:3px 18px;cursor:pointer;font-weight:bold}
+#_askok,#_sayok,#_ynyes,#_ynno{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;font-family:monospace;font-size:12px;padding:3px 18px;cursor:pointer}
+#_askok,#_sayok,#_ynyes{font-weight:bold}
+#_saybody,#_ynbody{padding:14px 12px 8px;font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+#_sayfoot,#_ynfoot{padding:4px 8px 10px;display:flex;justify-content:flex-end;gap:6px}
 </style></head><body>
 <div id="container">
   <canvas id="c" width="1063" height="797"></canvas>
@@ -4275,6 +4421,8 @@ canvas{display:block;width:100%;height:100%}
   <div id="btns" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
 </div>
 <div id="_ask"><div id="_askbox"><div id="_asktitle">Input</div><div id="_askbody"><div id="_askprompt"></div><input id="_askinput" type="text" autocomplete="off" spellcheck="false"></div><div id="_askfoot"><button id="_askok">OK</button></div></div></div>
+<div id="_say"><div id="_saybox"><div id="_saytitle">Message</div><div id="_saybody"></div><div id="_sayfoot"><button id="_sayok">OK</button></div></div></div>
+<div id="_yesno"><div id="_ynbox"><div id="_yntitle">Question</div><div id="_ynbody"></div><div id="_ynfoot"><button id="_ynno">No</button><button id="_ynyes">Yes</button></div></div></div>
 <div id="_msgbar" style="display:none"></div>
 <script>
 const stack=${stackData};
@@ -4351,6 +4499,8 @@ const btnState=new Map();
 const txtState=new Map();
 let _msgT=null;
 function showAsk(prompt){return new Promise(res=>{const bd=document.getElementById('_ask'),pr=document.getElementById('_askprompt'),inp=document.getElementById('_askinput'),ok=document.getElementById('_askok');if(!bd){res('');return;}pr.textContent=prompt;inp.value='';bd.className='active';setTimeout(()=>inp.focus(),60);function fin(){bd.className='';ok.removeEventListener('click',fin);inp.removeEventListener('keydown',onk);res(inp.value);}function onk(e){if(e.key==='Enter'){e.preventDefault();fin();}}ok.addEventListener('click',fin);inp.addEventListener('keydown',onk);});}
+function showSay(prompt){return new Promise(res=>{const bd=document.getElementById('_say'),body=document.getElementById('_saybody'),ok=document.getElementById('_sayok');if(!bd){res();return;}body.textContent=prompt;bd.className='active';setTimeout(()=>ok.focus(),60);function fin(){bd.className='';ok.removeEventListener('click',fin);document.removeEventListener('keydown',onk);res();}function onk(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();fin();}}ok.addEventListener('click',fin);document.addEventListener('keydown',onk);});}
+function showYesNo(prompt){return new Promise(res=>{const bd=document.getElementById('_yesno'),body=document.getElementById('_ynbody'),yb=document.getElementById('_ynyes'),nb=document.getElementById('_ynno');if(!bd){res(0);return;}body.textContent=prompt;bd.className='active';setTimeout(()=>yb.focus(),60);function fin(v){bd.className='';yb.removeEventListener('click',ony);nb.removeEventListener('click',onn);document.removeEventListener('keydown',onk);res(v);}function ony(){fin(1);}function onn(){fin(0);}function onk(e){if(e.key==='Enter'||e.key==='y'||e.key==='Y'){e.preventDefault();fin(1);}if(e.key==='Escape'||e.key==='n'||e.key==='N'){e.preventDefault();fin(0);}}yb.addEventListener('click',ony);nb.addEventListener('click',onn);document.addEventListener('keydown',onk);});}
 function showMsg(m,err){const b=document.getElementById('_msgbar');if(!b)return;b.textContent=(err?'⚠ ':'ℹ ')+m;b.style.cssText='position:fixed;bottom:0;left:0;right:0;padding:5px 16px;font-family:monospace;font-size:12px;text-align:center;display:block;z-index:999;background:'+(err?'#8b0000':'#004080')+';color:#fff';if(_msgT)clearTimeout(_msgT);_msgT=setTimeout(()=>b.style.display='none',5000);}
 function tokLine(line){const toks=[];let i=0,n=line.length;while(i<n){while(i<n&&/\s/.test(line[i]))i++;if(i>=n)break;if(line[i]==='"'){i++;let s='';while(i<n&&line[i]!=='"'){if(line[i]==='\\')i++;s+=line[i++];}if(i<n)i++;toks.push('"'+s+'"');}else{let tok='';while(i<n&&!/\s/.test(line[i]))tok+=line[i++];toks.push(tok);}}return toks;}
 function resV(tok){if(tok===undefined||tok===null)return 0;if(typeof tok==='string'&&tok.startsWith('"'))return tok.slice(1,-1);const ts=txtState.get(tok);if(ts)return ts.el.textContent;if(tok in gvars)return gvars[tok];const n=Number(tok);return(tok!==''&&!isNaN(n))?n:0;}
@@ -4373,6 +4523,8 @@ async function runScript(src,selfId){
     if(cmd==='stop'){halted=true;break;}
     if(tokens[1]==='='&&/^[a-zA-Z_]\w*$/.test(tokens[0])){const val=exprV(tokens.slice(2));const ts2=txtState.get(tokens[0]);if(ts2){ts2.el.textContent=String(val??'');}else{gvars[tokens[0]]=val;}pc++;continue;}
     if(cmd==='ask'){const pt=tokens.slice(1).map(t=>String(resV(t))).join(' ');gvars['answer']=await showAsk(pt);pc++;continue;}
+    if(cmd==='say'){const pt=tokens.slice(1).map(t=>String(resV(t))).join(' ');await showSay(pt);pc++;continue;}
+    if(cmd==='yesno'){const pt=tokens.slice(1).map(t=>String(resV(t))).join(' ');gvars['answer']=await showYesNo(pt);pc++;continue;}
     if(cmd==='wait'){
       const sub=(tokens[1]||'').toLowerCase();
       if(sub==='until'&&(tokens[2]||'').toLowerCase()==='done'){if(activeSounds.size>0)await Promise.all([...activeSounds]);}
