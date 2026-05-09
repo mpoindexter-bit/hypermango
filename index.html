@@ -561,6 +561,78 @@
   #play-canvas { display: block; }
   #play-buttons { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
+  /* ===== ASK DIALOG (play mode) ===== */
+  #play-ask-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 700;
+    align-items: center;
+    justify-content: center;
+  }
+  #play-ask-backdrop.active { display: flex; }
+  #play-ask-box {
+    background: var(--bg);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    box-shadow: 4px 4px 0 var(--black);
+    width: 340px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #play-ask-titlebar {
+    background: var(--accent);
+    color: var(--white);
+    font-size: 11px;
+    padding: 3px 8px;
+    user-select: none;
+  }
+  #play-ask-body {
+    padding: 16px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #play-ask-prompt {
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #play-ask-input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    border: 2px inset var(--bg);
+    background: var(--white);
+    padding: 4px 6px;
+    width: 100%;
+    outline: none;
+  }
+  #play-ask-input:focus { border-color: var(--accent-light); }
+  #play-ask-footer {
+    padding: 6px 10px 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  /* ===== PLAY MESSAGE BAR ===== */
+  #play-msg-bar {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 600;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 5px 16px;
+    text-align: center;
+  }
+  #play-msg-bar.visible { display: block; }
+  #play-msg-bar.error { background: #8b0000; color: #fff; }
+  #play-msg-bar.info  { background: #004080; color: #fff; }
+
   #exit-play-btn {
     position: fixed;
     top: 10px; right: 10px;
@@ -692,6 +764,22 @@
     user-select: text;
     caret-color: auto;
   }
+  /* text object name badge shown in editor */
+  .text-name-badge {
+    position: absolute;
+    top: -15px; left: 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #555;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(0,0,0,0.18);
+    border-radius: 2px;
+    padding: 0 3px;
+    line-height: 13px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
   /* resize handle for text */
   .text-resize-handle {
     position: absolute;
@@ -1268,6 +1356,19 @@ trigger effect negative</div>
     </div>
 
     <div>
+      <div class="cs-section-title">Ask / Input</div>
+      <div class="cs-note" style="margin-bottom:4px"><b>ask</b> pauses the script and shows an input dialog. The user's response is stored in the built-in variable <b>answer</b>.</div>
+      <div class="cs-block">ask "What is your name?"
+name = answer
+
+ask "Enter a number:"
+n = answer
+if n == "42"
+  go card secret
+end</div>
+    </div>
+
+    <div>
       <div class="cs-section-title">Control Flow</div>
       <table class="cs-table"><tbody>
         <tr><td>stop</td><td>halt script</td></tr>
@@ -1276,25 +1377,53 @@ trigger effect negative</div>
     </div>
 
     <div>
-      <div class="cs-section-title">Variables</div>
-      <div class="cs-note" style="margin-bottom:4px">Define variables in the <b>{} Variables</b> panel. Scripts read and write them during play.</div>
-      <div class="cs-block">-- assign a value
-score = 0
+      <div class="cs-section-title">Variables (numbers)</div>
+      <div class="cs-note" style="margin-bottom:4px">Define in <b>{} Variables</b> panel. Reset each play session.</div>
+      <div class="cs-block">score = 0
 score = score + 10
 lives = lives - 1
 damage = attack * 2
 
--- use in conditions
 if score > 100
-  go card bonus_card
+  go card bonus
 end
 if lives == 0
   go card game_over
-end
-if score != 0
-  show button reward_btn
 end</div>
-      <div class="cs-note" style="margin-top:4px">Operators: + &nbsp;- &nbsp;* &nbsp;/ &nbsp;(one per line)<br>Comparisons: &gt; &nbsp;&lt; &nbsp;&gt;= &nbsp;&lt;= &nbsp;== &nbsp;!=</div>
+      <div class="cs-note" style="margin-top:4px">Arithmetic: + &nbsp;- &nbsp;* &nbsp;/ &nbsp;(one op per line)<br>Compare: &gt; &nbsp;&lt; &nbsp;&gt;= &nbsp;&lt;= &nbsp;== &nbsp;!=</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Variables (strings)</div>
+      <div class="cs-block">-- assign string (no quotes needed in panel)
+name = "Alice"
+greeting = "Hello " & name
+
+-- string equality
+if name == "Alice"
+  go card secret_room
+end
+
+-- & concatenates; + also works for strings
+label = "Score: " & score</div>
+      <div class="cs-note" style="margin-top:4px">Mixing number + string in &gt;/&lt; comparisons shows an error in the message bar.</div>
+    </div>
+
+    <div>
+      <div class="cs-section-title">Text Objects</div>
+      <div class="cs-note" style="margin-bottom:4px">Text objects on a card are named <b>text_1</b>, <b>text_2</b>, etc. (shown as badges in editor).</div>
+      <div class="cs-block">-- set text content
+text_1 = "New content"
+text_2 = score
+text_1 = "Score: " & score
+
+-- read text content into a variable
+msg = text_1
+
+-- use in condition
+if text_1 == "done"
+  go next
+end</div>
     </div>
 
     <div>
@@ -1341,6 +1470,19 @@ end</div>
     <div id="play-buttons" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
   </div>
 </div>
+<div id="play-ask-backdrop">
+  <div id="play-ask-box">
+    <div id="play-ask-titlebar">Input</div>
+    <div id="play-ask-body">
+      <div id="play-ask-prompt"></div>
+      <input type="text" id="play-ask-input" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="play-ask-footer">
+      <button class="win-btn default" id="play-ask-ok">OK</button>
+    </div>
+  </div>
+</div>
+<div id="play-msg-bar"></div>
 
 <!-- BUTTON EDIT DIALOG -->
 <div class="dialog-backdrop" id="btn-dialog">
@@ -1494,11 +1636,11 @@ end</div>
       </div>
       <div class="dialog-row">
         <label>Initial value:</label>
-        <input type="number" id="add-var-val" value="0"
-          style="font-family:'Share Tech Mono',monospace;width:100px"
+        <input type="text" id="add-var-val" value="0" placeholder="0 or &quot;text&quot;"
+          style="font-family:'Share Tech Mono',monospace;width:130px"
           onkeydown="if(event.key==='Enter')commitAddVar()">
       </div>
-      <div style="font-size:10px;color:var(--shadow);margin-top:4px">Names: letters, digits, underscore. No spaces.</div>
+      <div style="font-size:10px;color:var(--shadow);margin-top:4px">Name: letters/digits/underscore. Value: a number or text (no quotes needed).</div>
     </div>
     <div class="dialog-footer">
       <button class="win-btn default" onclick="commitAddVar()">OK</button>
@@ -2859,7 +3001,7 @@ function renderTextLayer() {
   textLayer.style.zIndex = '5';
 
   const texts = getCardTexts();
-  texts.forEach(obj => {
+  texts.forEach((obj, textIdx) => {
     const el = document.createElement('div');
     el.id = obj.id;
     el.className = 'card-text-obj';
@@ -2877,6 +3019,12 @@ function renderTextLayer() {
     } else {
       el.innerHTML = '';
     }
+
+    // Text name badge (text_1, text_2, …)
+    const badge = document.createElement('div');
+    badge.className = 'text-name-badge';
+    badge.textContent = 'text_' + (textIdx + 1);
+    el.appendChild(badge);
 
     // Resize handle
     const handle = document.createElement('div');
@@ -3217,6 +3365,102 @@ function playSound(name) {
 
 // Runtime button visibility state for play mode (nameId -> { el, visible })
 const playBtnState = new Map();
+// Runtime text object state for play mode ('text_1' -> { el })
+const playTextState = new Map();
+
+let playMsgTimeout = null;
+function showPlayMsg(msg, isError = true) {
+  const bar = document.getElementById('play-msg-bar');
+  if (!bar) return;
+  bar.textContent = (isError ? '⚠ ' : 'ℹ ') + msg;
+  bar.className = 'visible ' + (isError ? 'error' : 'info');
+  if (playMsgTimeout) clearTimeout(playMsgTimeout);
+  playMsgTimeout = setTimeout(() => { bar.className = ''; }, 5000);
+}
+
+// Show the ask dialog and return a Promise that resolves to the user's input string
+function showAskDialog(promptText) {
+  return new Promise(resolve => {
+    const backdrop = document.getElementById('play-ask-backdrop');
+    const promptEl = document.getElementById('play-ask-prompt');
+    const input    = document.getElementById('play-ask-input');
+    const okBtn    = document.getElementById('play-ask-ok');
+    if (!backdrop) { resolve(''); return; }
+    promptEl.textContent = promptText;
+    input.value = '';
+    backdrop.classList.add('active');
+    setTimeout(() => input.focus(), 60);
+    function finish() {
+      backdrop.classList.remove('active');
+      okBtn.removeEventListener('click', finish);
+      input.removeEventListener('keydown', onKey);
+      resolve(input.value);
+    }
+    function onKey(e) { if (e.key === 'Enter') { e.preventDefault(); finish(); } }
+    okBtn.addEventListener('click', finish);
+    input.addEventListener('keydown', onKey);
+  });
+}
+
+// Tokenize a script line, respecting "quoted strings"
+function tokenizeLine(line) {
+  const tokens = [];
+  let i = 0;
+  const n = line.length;
+  while (i < n) {
+    while (i < n && /\s/.test(line[i])) i++;
+    if (i >= n) break;
+    if (line[i] === '"') {
+      i++;
+      let s = '';
+      while (i < n && line[i] !== '"') { if (line[i] === '\\') i++; s += line[i++]; }
+      if (i < n) i++;
+      tokens.push('"' + s + '"');
+    } else {
+      let tok = '';
+      while (i < n && !/\s/.test(line[i])) tok += line[i++];
+      tokens.push(tok);
+    }
+  }
+  return tokens;
+}
+
+// Resolve a token to its typed value (string or number)
+function resolveValue(token) {
+  if (token === undefined || token === null) return 0;
+  // Quoted string literal: "hello"
+  if (typeof token === 'string' && token.startsWith('"')) return token.slice(1, -1);
+  // Text object reference
+  const ts = playTextState.get(token);
+  if (ts) return ts.el.textContent;
+  // Variable reference
+  if (token in stackVars) return stackVars[token];
+  // Numeric literal
+  const n = Number(token);
+  if (token !== '' && !isNaN(n)) return n;
+  // Unknown identifier → 0
+  return 0;
+}
+
+// Evaluate simple expression: single value, or <a op b>
+function evalExprTyped(tokens) {
+  if (!tokens || tokens.length === 0) return 0;
+  if (tokens.length === 1) return resolveValue(tokens[0]);
+  if (tokens.length >= 3) {
+    const op = tokens[1];
+    const a = resolveValue(tokens[0]);
+    const b = resolveValue(tokens[2]);
+    if (op === '&') return String(a) + String(b); // string concat always
+    if (op === '+') {
+      if (typeof a === 'string' || typeof b === 'string') return String(a) + String(b);
+      return a + b;
+    }
+    if (op === '-') return (typeof a === 'number' ? a : 0) - (typeof b === 'number' ? b : 0);
+    if (op === '*') return (typeof a === 'number' ? a : 0) * (typeof b === 'number' ? b : 0);
+    if (op === '/') { const bn = typeof b === 'number' ? b : 0; return bn !== 0 ? (typeof a === 'number' ? a : 0) / bn : 0; }
+  }
+  return resolveValue(tokens[0]);
+}
 
 async function runScript(scriptText, selfId) {
   if (!scriptText || !scriptText.trim()) return;
@@ -3232,8 +3476,8 @@ async function runScript(scriptText, selfId) {
 
   while (pc < lines.length && !halted && steps++ < MAX) {
     const line = lines[pc];
-    const tokens = line.split(/\s+/).map(tok => selfId && tok.toLowerCase() === 'this' ? selfId : tok);
-    const cmd = tokens[0].toLowerCase();
+    const tokens = tokenizeLine(line).map(tok => selfId && tok.toLowerCase() === 'this' ? selfId : tok);
+    const cmd = (tokens[0] || '').toLowerCase();
 
     if (cmd === 'if') {
       const conditionText = tokens.slice(1).join(' ');
@@ -3270,9 +3514,26 @@ async function runScript(scriptText, selfId) {
     if (cmd === 'end') { pc++; continue; }
     if (cmd === 'stop') { halted = true; break; }
 
-    // Variable assignment: varName = expr
+    // Variable / text-object assignment: name = expr
     if (tokens[1] === '=' && /^[a-zA-Z_]\w*$/.test(tokens[0])) {
-      stackVars[tokens[0]] = evalExpr(tokens.slice(2));
+      const val = evalExprTyped(tokens.slice(2));
+      const textEntry = playTextState.get(tokens[0]);
+      if (textEntry) {
+        textEntry.el.textContent = String(val ?? '');
+      } else {
+        stackVars[tokens[0]] = val;
+      }
+      pc++; continue;
+    }
+
+    if (cmd === 'ask') {
+      // Collect the prompt: everything after 'ask', resolve quoted strings and vars
+      const promptTokens = tokens.slice(1);
+      const promptStr = promptTokens.length === 1
+        ? String(resolveValue(promptTokens[0]))
+        : promptTokens.map(t => String(resolveValue(t))).join(' ');
+      const answer = await showAskDialog(promptStr);
+      stackVars['answer'] = answer;
       pc++; continue;
     }
 
@@ -3392,17 +3653,28 @@ function animateButtonMove(id, direction, amtStr, durationSecs) {
 
 function evalScriptCondition(text) {
   const t = text.trim().split(/\s+/);
-  // Numeric comparison: <var|num> <op> <var|num>
-  const numOps = ['>', '<', '>=', '<=', '==', '!='];
-  if (t.length >= 3 && numOps.includes(t[1])) {
-    const a = resolveVar(t[0]), b = resolveVar(t[2]);
-    switch (t[1]) {
+  // Typed comparison: <var|num|str> <op> <var|num|str>
+  const cmpOps = ['>', '<', '>=', '<=', '==', '!='];
+  if (t.length >= 3 && cmpOps.includes(t[1])) {
+    const a = resolveValue(t[0]), b = resolveValue(t[2]);
+    const op = t[1];
+    if (op === '==' || op === '!=') {
+      if (typeof a !== typeof b) {
+        showPlayMsg(`Type error: cannot compare ${typeof a} (${a}) with ${typeof b} (${b}) using ${op}`);
+        return false;
+      }
+      return op === '==' ? a === b : a !== b;
+    }
+    // Ordered comparisons require numbers
+    if (typeof a !== 'number' || typeof b !== 'number') {
+      showPlayMsg(`Type error: "${t[0]}" and "${t[2]}" must both be numbers to use ${op}`);
+      return false;
+    }
+    switch (op) {
       case '>':  return a > b;
       case '<':  return a < b;
       case '>=': return a >= b;
       case '<=': return a <= b;
-      case '==': return a === b;
-      case '!=': return a !== b;
     }
   }
   // <buttonId> is [not] visible
@@ -3439,6 +3711,7 @@ const playButtons = document.getElementById('play-buttons');
 async function enterPlayMode() {
   saveCurrentCardImage();
   stackVars = Object.assign({}, stackVarDefs);
+  stackVars['answer'] = '';   // built-in: holds last ask response
   playCardIdx = currentCardIdx;
   document.getElementById('play-overlay').classList.add('active');
   await renderPlayCard(playCardIdx);
@@ -3462,11 +3735,12 @@ async function renderPlayCard(idx) {
     });
   }
   playButtons.innerHTML = '';
+  playTextState.clear();
   // Render text objects in play mode
   const playTextLayer = document.getElementById('play-text-layer');
   if (playTextLayer) {
     playTextLayer.innerHTML = '';
-    (card.textObjects || []).forEach(t => {
+    (card.textObjects || []).forEach((t, i) => {
       const el = document.createElement('div');
       el.style.position = 'absolute';
       el.style.left = t.x + 'px'; el.style.top = t.y + 'px';
@@ -3480,6 +3754,7 @@ async function renderPlayCard(idx) {
       el.style.pointerEvents = 'none';
       el.textContent = t.content;
       playTextLayer.appendChild(el);
+      playTextState.set('text_' + (i + 1), { el });
     });
   }
   playBtnState.clear();
@@ -3612,9 +3887,15 @@ function renderVarPanel() {
 
     const inp = document.createElement('input');
     inp.className = 'var-val-input';
-    inp.type = 'number';
+    inp.type = 'text';
     inp.value = stackVarDefs[name];
-    inp.addEventListener('change', () => { stackVarDefs[name] = parseFloat(inp.value) || 0; });
+    inp.title = typeof stackVarDefs[name] === 'number' ? 'number' : 'string';
+    inp.addEventListener('change', () => {
+      const raw = inp.value;
+      const n = Number(raw);
+      stackVarDefs[name] = (raw.trim() !== '' && !isNaN(n)) ? n : raw;
+      inp.title = typeof stackVarDefs[name] === 'number' ? 'number' : 'string';
+    });
     inp.addEventListener('keydown', e => e.stopPropagation());
 
     const del = document.createElement('button');
@@ -3623,8 +3904,13 @@ function renderVarPanel() {
     del.title = 'Delete variable';
     del.addEventListener('click', () => deleteVar(name));
 
+    const typeTag = document.createElement('span');
+    typeTag.style.cssText = 'font-size:9px;color:var(--shadow);flex-shrink:0;min-width:14px;text-align:center;';
+    typeTag.title = typeof stackVarDefs[name] === 'number' ? 'number' : 'string';
+    typeTag.textContent = typeof stackVarDefs[name] === 'number' ? '#' : '"';
     row.appendChild(lbl);
     row.appendChild(inp);
+    row.appendChild(typeTag);
     row.appendChild(del);
     list.appendChild(row);
   });
@@ -3644,8 +3930,9 @@ function commitAddVar() {
     alert('Name must start with a letter or underscore and contain only letters, digits, or underscores.');
     return;
   }
-  const val = parseFloat(document.getElementById('add-var-val').value);
-  stackVarDefs[name] = isNaN(val) ? 0 : val;
+  const raw = document.getElementById('add-var-val').value;
+  const n = Number(raw);
+  stackVarDefs[name] = (raw.trim() !== '' && !isNaN(n)) ? n : raw;
   closeDialog('add-var-dialog');
   renderVarPanel();
 }
@@ -3656,29 +3943,10 @@ function deleteVar(name) {
 }
 
 // Resolve a token to a number: literal or variable lookup
+// resolveVar kept as alias for backwards compat (returns numeric, used in old conditions)
 function resolveVar(token) {
-  if (token === undefined || token === null) return 0;
-  const n = parseFloat(token);
-  if (!isNaN(n)) return n;
-  const v = stackVars[token];
-  if (v !== undefined) return parseFloat(v) || 0;
-  return 0;
-}
-
-// Evaluate simple arithmetic expression: single value or <a op b>
-function evalExpr(tokens) {
-  if (!tokens || tokens.length === 0) return 0;
-  if (tokens.length >= 3) {
-    const a = resolveVar(tokens[0]);
-    const b = resolveVar(tokens[2]);
-    switch (tokens[1]) {
-      case '+': return a + b;
-      case '-': return a - b;
-      case '*': return a * b;
-      case '/': return b !== 0 ? a / b : 0;
-    }
-  }
-  return resolveVar(tokens[0]);
+  const v = resolveValue(token);
+  return typeof v === 'number' ? v : parseFloat(v) || 0;
 }
 
 function toggleCheatsheet() {
@@ -3991,12 +4259,23 @@ canvas{display:block;width:100%;height:100%}
 .fx-negative{animation:cardNeg 0.6s steps(1)}
 .fx-flash{animation:cardFlash 0.5s ease-in-out}
 .fx-wobble{animation:cardWobble 0.5s ease-in-out}
+#_ask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;align-items:center;justify-content:center}
+#_ask.active{display:flex}
+#_askbox{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;box-shadow:4px 4px 0 #000;width:320px;font-family:monospace}
+#_asktitle{background:#000080;color:#fff;font-size:11px;padding:3px 8px}
+#_askbody{padding:14px 12px 8px;display:flex;flex-direction:column;gap:10px}
+#_askprompt{font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+#_askinput{font-family:monospace;font-size:13px;border:2px inset #c0c0c0;background:#fff;padding:4px 6px;width:100%;outline:none;box-sizing:border-box}
+#_askfoot{padding:4px 8px 10px;display:flex;justify-content:flex-end}
+#_askok{background:#c0c0c0;border-top:2px solid #dfdfdf;border-left:2px solid #dfdfdf;border-bottom:2px solid #404040;border-right:2px solid #404040;font-family:monospace;font-size:12px;padding:3px 18px;cursor:pointer;font-weight:bold}
 </style></head><body>
 <div id="container">
   <canvas id="c" width="1063" height="797"></canvas>
   <div id="txtlayer"></div>
   <div id="btns" style="position:absolute;top:0;left:0;width:100%;height:100%"></div>
 </div>
+<div id="_ask"><div id="_askbox"><div id="_asktitle">Input</div><div id="_askbody"><div id="_askprompt"></div><input id="_askinput" type="text" autocomplete="off" spellcheck="false"></div><div id="_askfoot"><button id="_askok">OK</button></div></div></div>
+<div id="_msgbar" style="display:none"></div>
 <script>
 const stack=${stackData};
 const customSounds=${exportCustomSounds};
@@ -4029,7 +4308,8 @@ function show(i){
   ctx.fillStyle='#fff';ctx.fillRect(0,0,1063,797);
   btns.innerHTML='';txtlayer.innerHTML='';
   if(card.imageData){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0);img.src=card.imageData;}
-  (card.textObjects||[]).forEach(t=>{
+  txtState.clear();
+  (card.textObjects||[]).forEach((t,ti)=>{
     const el=document.createElement('div');
     el.className='hc-text';
     el.style.left=t.x+'px';el.style.top=t.y+'px';
@@ -4037,6 +4317,7 @@ function show(i){
     el.style.fontFamily=t.fontFamily;el.style.color=t.color;
     el.textContent=t.content;
     txtlayer.appendChild(el);
+    txtState.set('text_'+(ti+1),{el});
   });
   btnState.clear();
   card.buttons.forEach(btn=>{
@@ -4067,25 +4348,31 @@ function show(i){
   if(card.script&&card.script.trim())runScript(card.script);
 }
 const btnState=new Map();
-function resV(tok){if(tok===undefined)return 0;const n=parseFloat(tok);if(!isNaN(n))return n;const v=gvars[tok];return v!==undefined?parseFloat(v)||0:0;}
-function exprV(toks){if(!toks||!toks.length)return 0;if(toks.length>=3){const a=resV(toks[0]),b=resV(toks[2]);switch(toks[1]){case'+':return a+b;case'-':return a-b;case'*':return a*b;case'/':return b!==0?a/b:0;}}return resV(toks[0]);}
+const txtState=new Map();
+let _msgT=null;
+function showAsk(prompt){return new Promise(res=>{const bd=document.getElementById('_ask'),pr=document.getElementById('_askprompt'),inp=document.getElementById('_askinput'),ok=document.getElementById('_askok');if(!bd){res('');return;}pr.textContent=prompt;inp.value='';bd.className='active';setTimeout(()=>inp.focus(),60);function fin(){bd.className='';ok.removeEventListener('click',fin);inp.removeEventListener('keydown',onk);res(inp.value);}function onk(e){if(e.key==='Enter'){e.preventDefault();fin();}}ok.addEventListener('click',fin);inp.addEventListener('keydown',onk);});}
+function showMsg(m,err){const b=document.getElementById('_msgbar');if(!b)return;b.textContent=(err?'⚠ ':'ℹ ')+m;b.style.cssText='position:fixed;bottom:0;left:0;right:0;padding:5px 16px;font-family:monospace;font-size:12px;text-align:center;display:block;z-index:999;background:'+(err?'#8b0000':'#004080')+';color:#fff';if(_msgT)clearTimeout(_msgT);_msgT=setTimeout(()=>b.style.display='none',5000);}
+function tokLine(line){const toks=[];let i=0,n=line.length;while(i<n){while(i<n&&/\s/.test(line[i]))i++;if(i>=n)break;if(line[i]==='"'){i++;let s='';while(i<n&&line[i]!=='"'){if(line[i]==='\\')i++;s+=line[i++];}if(i<n)i++;toks.push('"'+s+'"');}else{let tok='';while(i<n&&!/\s/.test(line[i]))tok+=line[i++];toks.push(tok);}}return toks;}
+function resV(tok){if(tok===undefined||tok===null)return 0;if(typeof tok==='string'&&tok.startsWith('"'))return tok.slice(1,-1);const ts=txtState.get(tok);if(ts)return ts.el.textContent;if(tok in gvars)return gvars[tok];const n=Number(tok);return(tok!==''&&!isNaN(n))?n:0;}
+function exprV(toks){if(!toks||!toks.length)return 0;if(toks.length===1)return resV(toks[0]);if(toks.length>=3){const op=toks[1],a=resV(toks[0]),b=resV(toks[2]);if(op==='&')return String(a)+String(b);if(op==='+'){return(typeof a==='string'||typeof b==='string')?String(a)+String(b):a+b;}if(op==='-')return(+a||0)-(+b||0);if(op==='*')return(+a||0)*(+b||0);if(op==='/')return(+b||0)!==0?(+a||0)/(+b||0):0;}return resV(toks[0]);}
 async function runScript(src,selfId){
   const lines=src.split('\\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('--'));
   let pc=0,halted=false;const MAX=500;let steps=0;
   while(pc<lines.length&&!halted&&steps++<MAX){
-    const tokens=lines[pc].split(/\s+/).map(tok=>selfId&&tok.toLowerCase()==='this'?selfId:tok);
-    const cmd=tokens[0].toLowerCase();
+    const tokens=tokLine(lines[pc]).map(tok=>selfId&&tok.toLowerCase()==='this'?selfId:tok);
+    const cmd=(tokens[0]||'').toLowerCase();
     if(cmd==='if'){
       if(!evalCond(tokens.slice(1).join(' '))){
         let d=1;pc++;
-        while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}else if(t==='else'&&d===1){pc++;break;}pc++;}
+        while(pc<lines.length){const t=tokLine(lines[pc])[0]&&tokLine(lines[pc])[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}else if(t==='else'&&d===1){pc++;break;}pc++;}
         continue;
       }pc++;continue;
     }
-    if(cmd==='else'){let d=1;pc++;while(pc<lines.length){const t=lines[pc].split(/\s+/)[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}pc++;}continue;}
+    if(cmd==='else'){let d=1;pc++;while(pc<lines.length){const t=tokLine(lines[pc])[0]&&tokLine(lines[pc])[0].toLowerCase();if(t==='if')d++;else if(t==='end'){d--;if(d===0){pc++;break;}}pc++;}continue;}
     if(cmd==='end'){pc++;continue;}
     if(cmd==='stop'){halted=true;break;}
-    if(tokens[1]==='='&&/^[a-zA-Z_]\w*$/.test(tokens[0])){gvars[tokens[0]]=exprV(tokens.slice(2));pc++;continue;}
+    if(tokens[1]==='='&&/^[a-zA-Z_]\w*$/.test(tokens[0])){const val=exprV(tokens.slice(2));const ts2=txtState.get(tokens[0]);if(ts2){ts2.el.textContent=String(val??'');}else{gvars[tokens[0]]=val;}pc++;continue;}
+    if(cmd==='ask'){const pt=tokens.slice(1).map(t=>String(resV(t))).join(' ');gvars['answer']=await showAsk(pt);pc++;continue;}
     if(cmd==='wait'){
       const sub=(tokens[1]||'').toLowerCase();
       if(sub==='until'&&(tokens[2]||'').toLowerCase()==='done'){if(activeSounds.size>0)await Promise.all([...activeSounds]);}
@@ -4137,9 +4424,9 @@ function animMove(id,dir,amtStr,durSecs){
   requestAnimationFrame(step);
 }
 function evalCond(text){
-  const t=text.trim().split(/\s+/);
-  const numOps=['>', '<','>=','<=','==','!='];
-  if(t.length>=3&&numOps.includes(t[1])){const a=resV(t[0]),b=resV(t[2]);switch(t[1]){case'>':return a>b;case'<':return a<b;case'>=':return a>=b;case'<=':return a<=b;case'==':return a===b;case'!=':return a!==b;}return false;}
+  const t=tokLine(text.trim());
+  const cmpOps=['>', '<','>=','<=','==','!='];
+  if(t.length>=3&&cmpOps.includes(t[1])){const a=resV(t[0]),b=resV(t[2]),op=t[1];if(op==='=='||op==='!='){if(typeof a!==typeof b){showMsg('Type error: cannot compare '+typeof a+' ('+a+') with '+typeof b+' ('+b+') using '+op,true);return false;}return op==='=='?a===b:a!==b;}if(typeof a!=='number'||typeof b!=='number'){showMsg('Type error: must be numbers to use '+op,true);return false;}switch(op){case'>':return a>b;case'<':return a<b;case'>=':return a>=b;case'<=':return a<=b;}return false;}
   if(t.length>=3&&t[1].toLowerCase()==='is'){
     const neg=t[2].toLowerCase()==='not';
     const prop=neg?(t[3]||'').toLowerCase():(t[2]||'').toLowerCase();
@@ -4154,7 +4441,7 @@ function evalCond(text){
   }
   return false;
 }
-gvars=Object.assign({},varDefs);show(0);
+gvars=Object.assign({},varDefs);gvars['answer']='';show(0);
 <\/script></body></html>`;
 
   const blob = new Blob([html], {type:'text/html'});
