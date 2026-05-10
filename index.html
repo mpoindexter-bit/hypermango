@@ -1347,28 +1347,21 @@ play sound whoosh
 play sound drum
 play sound glass
 
--- server sounds (need MP3 in audio/ folder):
-play sound pop
-play sound coin
-play sound jump
-play sound hurt
-play sound select
-play sound confirm
-play sound error
-play sound notify
-play sound win
-play sound lose
-play sound laser
+-- server sounds:
+play sound beam_me_up_scotty
+play sound bubbling_potion
+play sound chicken
+play sound creaky_door_short
+play sound demon_your_soul
+play sound door_creak
 play sound explosion
-play sound magic
-play sound fanfare
-play sound typewriter
-play sound boing
-play sound squeak
-play sound piano
+play sound kid_laugh
+play sound magical_disappearance
+play sound magical_energy_burst
+play sound monster_1
 
 -- play then continue after:
-play sound win
+play sound explosion
 wait until done
 go next
 
@@ -1786,30 +1779,23 @@ let stackVars = {};
 // Built-in sound library — synthesized names stay offline-safe; URL names load from server
 const AUDIO_BASE = 'http://mango.yebooyah.club/audio/';
 const BUILTIN_SOUNDS = [
-  { name: 'click',      label: 'Click'      },  // synthesized
-  { name: 'beep',       label: 'Beep'       },  // synthesized
-  { name: 'chime',      label: 'Chime'      },  // synthesized
-  { name: 'whoosh',     label: 'Whoosh'     },  // synthesized
-  { name: 'drum',       label: 'Drum'       },  // synthesized
-  { name: 'glass',      label: 'Glass'      },  // synthesized
-  { name: 'pop',        label: 'Pop'        },
-  { name: 'coin',       label: 'Coin'       },
-  { name: 'jump',       label: 'Jump'       },
-  { name: 'hurt',       label: 'Hurt'       },
-  { name: 'select',     label: 'Select'     },
-  { name: 'confirm',    label: 'Confirm'    },
-  { name: 'error',      label: 'Error'      },
-  { name: 'notify',     label: 'Notify'     },
-  { name: 'win',        label: 'Win'        },
-  { name: 'lose',       label: 'Lose'       },
-  { name: 'laser',      label: 'Laser'      },
-  { name: 'explosion',  label: 'Explosion'  },
-  { name: 'magic',      label: 'Magic'      },
-  { name: 'fanfare',    label: 'Fanfare'    },
-  { name: 'typewriter', label: 'Typewriter' },
-  { name: 'boing',      label: 'Boing'      },
-  { name: 'squeak',     label: 'Squeak'     },
-  { name: 'piano',      label: 'Piano'      },
+  { name: 'click',                 label: 'Click'                  },  // synthesized
+  { name: 'beep',                  label: 'Beep'                   },  // synthesized
+  { name: 'chime',                 label: 'Chime'                  },  // synthesized
+  { name: 'whoosh',                label: 'Whoosh'                 },  // synthesized
+  { name: 'drum',                  label: 'Drum'                   },  // synthesized
+  { name: 'glass',                 label: 'Glass'                  },  // synthesized
+  { name: 'beam_me_up_scotty',     label: 'Beam Me Up Scotty'      },
+  { name: 'bubbling_potion',       label: 'Bubbling Potion'        },
+  { name: 'chicken',               label: 'Chicken'                },
+  { name: 'creaky_door_short',     label: 'Creaky Door (short)'    },
+  { name: 'demon_your_soul',       label: 'Demon: Your Soul'       },
+  { name: 'door_creak',            label: 'Door Creak'             },
+  { name: 'explosion',             label: 'Explosion'              },
+  { name: 'kid_laugh',             label: 'Kid Laugh'              },
+  { name: 'magical_disappearance', label: 'Magical Disappearance'  },
+  { name: 'magical_energy_burst',  label: 'Magical Energy Burst'   },
+  { name: 'monster_1',             label: 'Monster 1'              },
 ];
 const SYNTH_SOUND_NAMES = new Set(['click','beep','chime','whoosh','drum','glass']);
 
