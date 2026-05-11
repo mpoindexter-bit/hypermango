@@ -1799,6 +1799,9 @@ let fontSize = 20;
 let selectedTextId = null;
 let drawingOnButton = null;  // button obj if drawing on a canvas button, else null
 let activeSurface = null;    // { ctx, w, h, ox, oy, button } for current drawing surface
+let pasteImageState = null;  // { img, w, h, cursorX, cursorY } while a pasted image is floating
+let copiedButton = null;     // button deep-copy held by Ctrl+C
+let copiedCard = null;       // card deep-copy held by Ctrl+C
 
 // Global variables: definitions (name -> initial number) persisted to file
 let stackVarDefs = {};
@@ -2221,14 +2224,71 @@ function finishSurfaceDraw() {
 }
 
 function updateButtonPointerEvents() {
-  const passThrough = currentTool !== 'pointer' && currentTool !== 'text';
+  const passThrough = pasteImageState || (currentTool !== 'pointer' && currentTool !== 'text');
   document.querySelectorAll('.hc-button, .btn-handle').forEach(el => {
     el.style.pointerEvents = passThrough ? 'none' : 'all';
   });
 }
 
+// ============================================================
+// PASTE IMAGE (float-and-place)
+// ============================================================
+function drawPastePreview() {
+  clearUiCanvas();
+  if (!pasteImageState) return;
+  const { img, w, h, cursorX, cursorY } = pasteImageState;
+  const x = Math.round(cursorX - w / 2);
+  const y = Math.round(cursorY - h / 2);
+  uiCtx.save();
+  uiCtx.globalAlpha = 0.85;
+  uiCtx.drawImage(img, x, y, w, h);
+  uiCtx.globalAlpha = 1;
+  uiCtx.strokeStyle = '#0078d7';
+  uiCtx.lineWidth = 2;
+  uiCtx.setLineDash([5, 3]);
+  uiCtx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  uiCtx.setLineDash([]);
+  uiCtx.restore();
+}
+
+function cancelPasteImage() {
+  pasteImageState = null;
+  clearUiCanvas();
+  updateButtonPointerEvents();
+}
+
+function placePasteImage(p) {
+  const hitBtn = getHitCanvasButton(p);
+  const surface = buildActiveSurface(hitBtn);
+  const ctx = surface ? surface.ctx : drawCtx;
+  pushUndoState();
+  const { img, w, h } = pasteImageState;
+  const dx = Math.round(p.x - (surface ? surface.ox : 0) - w / 2);
+  const dy = Math.round(p.y - (surface ? surface.oy : 0) - h / 2);
+  ctx.drawImage(img, dx, dy, w, h);
+  if (surface) {
+    saveButtonCanvas(surface.button);
+  } else {
+    saveCurrentCardImage();
+    updateThumb(currentCardIdx);
+  }
+  cancelPasteImage();
+}
+
 // mousedown only on canvas; move+up on document so drags that leave the canvas still track
 drawingCanvas.addEventListener('mousedown', startDraw);
+
+// Allow a draw to start in the checkered surround outside the card.
+// The canvas clips rendering naturally, so out-of-bounds start coords are harmless.
+// Skip bucket (needs a valid in-canvas pixel) and paste-placement (handled by its own logic).
+{
+  const cardContainer = document.getElementById('card-container');
+  document.getElementById('canvas-area').addEventListener('mousedown', e => {
+    if (cardContainer.contains(e.target)) return; // click was inside the card — already handled
+    if (currentTool === 'bucket' || pasteImageState) return;
+    startDraw(e);
+  });
+}
 drawingCanvas.addEventListener('mousemove', e => {
   if (!isDrawing) {
     const p = getPos(e);
@@ -2243,6 +2303,13 @@ drawingCanvas.addEventListener('mouseleave', e => {
 });
 // rect, circle, fill, lasso track on document so mouse leaving canvas doesn't end the draw
 document.addEventListener('mousemove', e => {
+  if (pasteImageState) {
+    const p = getPos(e);
+    pasteImageState.cursorX = p.x;
+    pasteImageState.cursorY = p.y;
+    drawPastePreview();
+    return;
+  }
   if (currentTool === 'polygon' && polyActive) {
     polyMouseMove(e);
     return;
@@ -2273,6 +2340,7 @@ drawingCanvas.addEventListener('mouseup', e => {
 });
 
 function startDraw(e) {
+  if (pasteImageState) { placePasteImage(getPos(e)); return; }
   if (currentTool === 'pointer' || currentTool === 'text' || currentTool === 'polygon') return;
   const p = getPos(e);
 
@@ -4799,6 +4867,79 @@ window.addEventListener('beforeunload', e => {
 });
 
 // ============================================================
+// PASTE — image from system clipboard / button / card
+// ============================================================
+document.addEventListener('paste', async e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (currentlyEditingTextId) return;
+
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  // Image data takes first priority — enter float-and-place mode
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        // Scale down to fit the card if the image is larger
+        if (w > CARD_W || h > CARD_H) {
+          const scale = Math.min(CARD_W / w, CARD_H / h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        pasteImageState = { img, w, h, cursorX: CARD_W / 2, cursorY: CARD_H / 2 };
+        updateButtonPointerEvents(); // make buttons pass mouse events through
+        drawPastePreview();
+      };
+      img.src = url;
+      return;
+    }
+  }
+
+  // No image — try internal clipboard (button paste, then card paste)
+  e.preventDefault();
+  if (copiedButton) {
+    pushUndoState();
+    const newBtn = JSON.parse(JSON.stringify(copiedButton));
+    newBtn.id = 'hcbtn_' + buttonIdCounter;
+    newBtn.nameId = 'button_' + (buttonIdCounter++);
+    newBtn.x = Math.min(newBtn.x + 20, CARD_W - newBtn.w);
+    newBtn.y = Math.min(newBtn.y + 20, CARD_H - newBtn.h);
+    stack[currentCardIdx].buttons.push(newBtn);
+    renderButtonsLayer();
+    updateThumb(currentCardIdx);
+    selectButton(newBtn.id);
+  } else if (copiedCard) {
+    pushUndoState();
+    const newCard = JSON.parse(JSON.stringify(copiedCard));
+    newCard.id = Date.now() + Math.random();
+    newCard.name = copiedCard.name + ' copy';
+    newCard.buttons = newCard.buttons.map(b => ({
+      ...b,
+      id: 'hcbtn_' + buttonIdCounter,
+      nameId: 'button_' + (buttonIdCounter++)
+    }));
+    newCard.textObjects = (newCard.textObjects || []).map(t => ({
+      ...t,
+      id: 'htxt_' + (textIdCounter++)
+    }));
+    stack.splice(currentCardIdx + 1, 0, newCard);
+    currentCardIdx++;
+    await loadCardImage(stack[currentCardIdx]);
+    renderButtonsLayer();
+    renderTextLayer();
+    rebuildStrip();
+    updateStatus();
+    updateCardNameInput();
+  }
+});
+
+// ============================================================
 // STATUS
 // ============================================================
 function updateStatus() {
@@ -4818,19 +4959,34 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); undo(); return; }
   if ((e.ctrlKey || e.metaKey) && (key === 'y' || key === 'Z')) { e.preventDefault(); redo(); return; }
 
+  // Copy (button or card)
+  if ((e.ctrlKey || e.metaKey) && key === 'c') {
+    e.preventDefault();
+    if (focusedButtonId) {
+      const btn = stack[currentCardIdx]?.buttons.find(b => b.id === focusedButtonId);
+      if (btn) { copiedButton = JSON.parse(JSON.stringify(btn)); copiedCard = null; }
+    } else {
+      saveCurrentCardImage();
+      copiedCard = JSON.parse(JSON.stringify(stack[currentCardIdx]));
+      copiedButton = null;
+    }
+    return;
+  }
+
   if (key === 'ArrowRight' || key === 'ArrowDown') { e.preventDefault(); goNext(); }
   if (key === 'ArrowLeft' || key === 'ArrowUp') { e.preventDefault(); goPrev(); }
   if (key === 'v' || key === 'V') setTool('pointer');
   if (key === 'p' || key === 'P') setTool('pencil');
   if (key === 'e' || key === 'E') setTool('eraser');
   if (key === 'r' || key === 'R') setTool('rect');
-  if (key === 'c' || key === 'C') setTool('circle');
+  if ((key === 'c' || key === 'C') && !e.ctrlKey && !e.metaKey) setTool('circle');
   if (key === 'f' || key === 'F') setTool('fill');
   if (key === 'b' || key === 'B') setTool('bucket');
   if (key === 'l' || key === 'L') setTool('lasso');
   if (key === 'g' || key === 'G') setTool('polygon');
   if (key === 't' || key === 'T') setTool('text');
   if (key === 'Escape') {
+    if (pasteImageState) { cancelPasteImage(); return; }
     exitPlayMode();
     deselectButton();
     deselectText();
