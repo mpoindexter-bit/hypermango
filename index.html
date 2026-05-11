@@ -2281,6 +2281,10 @@ function startDraw(e) {
   if (currentTool === 'pencil') {
     ctx.beginPath();
     ctx.moveTo(sp.x, sp.y);
+    if (!strokeColor) {
+      uiCtx.beginPath();
+      uiCtx.moveTo(p.x, p.y);
+    }
   } else if (currentTool === 'lasso') {
     lassoPoints = [p]; // keep in card coords; translate in draw functions
     ctx.beginPath();
@@ -2295,7 +2299,17 @@ function moveDraw(e, clamp) {
   const ctx = activeSurface ? activeSurface.ctx : drawCtx;
 
   if (currentTool === 'pencil') {
-    if (!strokeColor) return;
+    if (!strokeColor) {
+      uiCtx.globalCompositeOperation = 'source-over';
+      uiCtx.strokeStyle = 'rgba(128,128,128,0.5)';
+      uiCtx.lineWidth = brushSize;
+      uiCtx.lineCap = 'round';
+      uiCtx.lineJoin = 'round';
+      uiCtx.setLineDash([4, 4]);
+      uiCtx.lineTo(rawP.x, rawP.y);
+      uiCtx.stroke();
+      return;
+    }
     ctx.globalCompositeOperation = 'source-over';
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = brushSize;
@@ -2341,6 +2355,11 @@ function endDraw(e, clamp) {
   } else if (currentTool === 'rect' || currentTool === 'circle' || currentTool === 'fill') {
     if (snapshotBeforeDraw) ctx.putImageData(snapshotBeforeDraw, 0, 0);
     drawShape(ctx, drawStart, p);
+  }
+
+  if (currentTool === 'pencil' && !strokeColor) {
+    clearUiCanvas();
+    uiCtx.setLineDash([]);
   }
 
   ctx.beginPath();
@@ -2407,6 +2426,18 @@ function drawLassoPreview() {
     ctx.strokeStyle = strokeColor;
     ctx.beginPath();
     ctx.moveTo(lassoPoints[lassoPoints.length - 1].x - ox, lassoPoints[lassoPoints.length - 1].y - oy);
+    ctx.lineTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(128,128,128,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
+    for (let i = 1; i < lassoPoints.length; i++) {
+      ctx.lineTo(lassoPoints[i].x - ox, lassoPoints[i].y - oy);
+    }
     ctx.lineTo(lassoPoints[0].x - ox, lassoPoints[0].y - oy);
     ctx.stroke();
     ctx.restore();
@@ -2505,6 +2536,27 @@ function drawPolyPreview(cursorPt, snapping) {
     ctx.lineWidth = Math.max(1, brushSize);
     ctx.strokeStyle = strokeColor;
     ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(polyPoints[polyPoints.length - 1].x, polyPoints[polyPoints.length - 1].y);
+    if (snapping) {
+      ctx.lineTo(polyPoints[0].x, polyPoints[0].y);
+    } else {
+      ctx.lineTo(cursorPt.x, cursorPt.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    // Ghost: show lines without a stroke color so the user can see their shape
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(128,128,128,0.5)';
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+    for (let i = 1; i < polyPoints.length; i++) {
+      ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+    }
+    ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(polyPoints[polyPoints.length - 1].x, polyPoints[polyPoints.length - 1].y);
     if (snapping) {
