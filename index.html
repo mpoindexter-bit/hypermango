@@ -771,6 +771,17 @@
     border-right: 2px solid var(--highlight);
   }
   .win-btn.default { font-weight: bold; }
+  .text-link-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 10px;
+    color: var(--shadow);
+    cursor: pointer;
+    padding: 2px 4px;
+    text-decoration: underline;
+  }
+  .text-link-btn:hover { color: var(--black); }
 
   /* ===== STATUS BAR ===== */
   #statusbar {
@@ -1728,6 +1739,24 @@ end</div>
     <div class="dialog-footer">
       <button class="win-btn default" onclick="commitAddVar()">OK</button>
       <button class="win-btn" onclick="closeDialog('add-var-dialog')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="unsaved-dialog">
+  <div class="dialog" style="min-width:340px;max-width:420px">
+    <div class="dialog-titlebar">
+      <span id="unsaved-dialog-title">Unsaved Changes</span>
+    </div>
+    <div class="dialog-body" style="font-size:12px;line-height:1.6" id="unsaved-dialog-body">
+      You have unsaved changes. What would you like to do?
+    </div>
+    <div class="dialog-footer" style="justify-content:space-between;align-items:center">
+      <button class="text-link-btn" id="unsaved-leave-btn">Leave without saving</button>
+      <div style="display:flex;gap:8px">
+        <button class="win-btn" id="unsaved-cancel-btn">Cancel</button>
+        <button class="win-btn default" id="unsaved-save-btn">Save and Leave</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4266,7 +4295,15 @@ async function loadStackFile(e) {
 }
 
 function newStack() {
-  if (!confirm('Start a new stack? Unsaved work will be lost.')) return;
+  showUnsavedDialog({
+    title: 'New Stack',
+    message: 'Starting a new stack will discard your current project. Save it first?',
+    onSave: () => { saveStack(); doNewStack(); },
+    onLeave: doNewStack,
+  });
+}
+
+function doNewStack() {
   stack = [];
   currentCardIdx = 0;
   projectName = 'Untitled Stack';
@@ -4433,7 +4470,15 @@ async function loadFromBrowserSelected() {
   if (!selectedBrowserKey) return;
   const json = localStorage.getItem(selectedBrowserKey);
   if (!json) { alert('Stack not found in browser storage.'); return; }
-  if (!confirm('Load this stack? Unsaved changes to the current stack will be lost.')) return;
+  showUnsavedDialog({
+    title: 'Load Stack',
+    message: 'Loading will replace your current project. Save it first?',
+    onSave: () => { saveStack(); doLoadFromBrowserSelected(json); },
+    onLeave: () => doLoadFromBrowserSelected(json),
+  });
+}
+
+async function doLoadFromBrowserSelected(json) {
   try {
     const data = JSON.parse(json);
     if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid stack data');
@@ -4715,6 +4760,42 @@ document.querySelectorAll('.dialog-backdrop').forEach(backdrop => {
   backdrop.addEventListener('click', e => {
     if (e.target === backdrop) backdrop.classList.remove('active');
   });
+});
+
+// ============================================================
+// UNSAVED CHANGES DIALOG
+// ============================================================
+let _unsavedCallbacks = null;
+
+function showUnsavedDialog({ title, message, onSave, onLeave }) {
+  if (title) document.getElementById('unsaved-dialog-title').textContent = title;
+  if (message) document.getElementById('unsaved-dialog-body').textContent = message;
+  _unsavedCallbacks = { onSave, onLeave };
+  openDialog('unsaved-dialog');
+}
+
+document.getElementById('unsaved-save-btn').addEventListener('click', () => {
+  closeDialog('unsaved-dialog');
+  if (_unsavedCallbacks?.onSave) _unsavedCallbacks.onSave();
+  _unsavedCallbacks = null;
+});
+
+document.getElementById('unsaved-leave-btn').addEventListener('click', () => {
+  closeDialog('unsaved-dialog');
+  if (_unsavedCallbacks?.onLeave) _unsavedCallbacks.onLeave();
+  _unsavedCallbacks = null;
+});
+
+document.getElementById('unsaved-cancel-btn').addEventListener('click', () => {
+  closeDialog('unsaved-dialog');
+  _unsavedCallbacks = null;
+});
+
+// Safety net for browser-level navigation (refresh, close tab, URL change).
+// Browsers only allow a generic "Leave site?" prompt — no custom text or buttons.
+window.addEventListener('beforeunload', e => {
+  e.preventDefault();
+  return e.returnValue = '';
 });
 
 // ============================================================
