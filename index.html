@@ -667,6 +667,42 @@
     gap: 6px;
   }
 
+  /* ===== DRIVE SIGN-IN BANNER ===== */
+  #drive-signin-banner {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 800;
+    background: var(--accent);
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 8px 16px;
+    align-items: center;
+    gap: 12px;
+  }
+  #drive-signin-banner.visible { display: flex; }
+  #drive-signin-btn {
+    background: var(--btn-face);
+    color: var(--black);
+    border-top: 2px solid var(--highlight);
+    border-left: 2px solid var(--highlight);
+    border-bottom: 2px solid var(--shadow);
+    border-right: 2px solid var(--shadow);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 2px 12px;
+    cursor: pointer;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  #drive-signin-btn:active {
+    border-top: 2px solid var(--shadow);
+    border-left: 2px solid var(--shadow);
+    border-bottom: 2px solid var(--highlight);
+    border-right: 2px solid var(--highlight);
+  }
+
   /* ===== PLAY MESSAGE BAR ===== */
   #play-msg-bar {
     display: none;
@@ -1545,6 +1581,12 @@ end</div>
     <div id="var-panel-list"></div>
     <button id="var-panel-add-btn" onclick="openAddVarDialog()">+ Add Variable</button>
   </div>
+</div>
+
+<!-- GOOGLE DRIVE SIGN-IN BANNER -->
+<div id="drive-signin-banner">
+  <span>📂 Sign in to Google Drive to open your file.</span>
+  <button id="drive-signin-btn" onclick="_driveSignIn()">Sign In</button>
 </div>
 
 <!-- PLAY OVERLAY -->
@@ -5176,8 +5218,31 @@ function initGoogleDrive() {
   driveTokenClient.requestAccessToken({ prompt: '' });
 }
 
+function _driveShowSignInBanner() {
+  document.getElementById('drive-signin-banner').classList.add('visible');
+}
+
+function _driveHideSignInBanner() {
+  document.getElementById('drive-signin-banner').classList.remove('visible');
+}
+
+function _driveSignIn() {
+  // Called from the sign-in banner button — user gesture allows the OAuth popup
+  driveTokenClient.requestAccessToken({ prompt: 'select_account' });
+}
+
 async function _driveHandleToken(resp) {
-  if (resp.error) { alert('Google sign-in failed: ' + resp.error); return; }
+  if (resp.error) {
+    // Silent auth failed. If we're in Drive open/create mode, show the sign-in
+    // banner so the user can trigger auth via a button click (required for popup).
+    if (driveFileId || driveFolderId) {
+      _driveShowSignInBanner();
+    } else {
+      alert('Google sign-in failed: ' + resp.error);
+    }
+    return;
+  }
+  _driveHideSignInBanner();
   driveAccessToken = resp.access_token;
 
   if (driveFileId) {
