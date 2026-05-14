@@ -5045,6 +5045,8 @@ document.addEventListener('keydown', e => {
   menuItems.forEach(item => {
     item.addEventListener('mousedown', e => {
       e.stopPropagation();
+      // If the click is inside the dropdown, don't toggle — let the item's onclick fire
+      if (e.target.closest('.dropdown')) return;
       if (openMenu === item) {
         closeAll();
       } else {
@@ -5052,6 +5054,10 @@ document.addEventListener('keydown', e => {
         item.classList.add('menu-open');
         openMenu = item;
       }
+    });
+    // Close after any dropdown item click (once its onclick has already fired)
+    item.querySelector('.dropdown').addEventListener('click', e => {
+      if (e.target.closest('.dropdown-item')) closeAll();
     });
     // Also open on hover if any menu is already open (classic menu bar behaviour)
     item.addEventListener('mouseenter', () => {
@@ -5063,7 +5069,10 @@ document.addEventListener('keydown', e => {
     });
   });
 
-  document.addEventListener('mousedown', () => closeAll());
+  // Close when clicking outside the menu bar
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('#menubar .menu-item[data-menu]')) closeAll();
+  });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
 })();
 
