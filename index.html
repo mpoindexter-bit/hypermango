@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HyperWeb — Stack Authorrr</title>
+<script src="https://accounts.google.com/gsi/client" onload="initGoogleDrive()" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
@@ -1154,6 +1155,7 @@
     <div class="dropdown">
       <div class="dropdown-item" onclick="newStack()">New Stack</div>
       <div class="dropdown-item" onclick="saveStack()">Save Stack…</div>
+      <div class="dropdown-item" id="menu-drive-save" onclick="driveSaveFile()" style="display:none">Save to Drive    Ctrl+S</div>
       <div class="dropdown-item" onclick="document.getElementById('load-file-input').click()">Open Stack…</div>
       <div class="dropdown-sep"></div>
       <div class="dropdown-item" onclick="exportStack()">Export as HTML</div>
@@ -1277,6 +1279,7 @@
   <div class="tool-sep"></div>
   <button class="tool-btn" data-tip="▶ Play" onclick="enterPlayMode()" style="font-size:12px;width:auto;padding:0 8px;">▶ Play</button>
   <button class="tool-btn" data-tip="Save to disk" onclick="saveStack()" style="font-size:12px;width:auto;padding:0 8px;">💾 Save</button>
+  <button class="tool-btn" id="drive-save-btn" data-tip="Save to Google Drive (Ctrl+S)" onclick="driveSaveFile()" style="font-size:11px;width:auto;padding:0 6px;display:none">☁ Drive</button>
   <button class="tool-btn" data-tip="Save to browser storage" onclick="saveToBrowser()" style="font-size:11px;width:auto;padding:0 6px;">🌐 Save to Browser</button>
   <button class="tool-btn" data-tip="Load from browser storage" onclick="openBrowserLoadDialog()" style="font-size:11px;width:auto;padding:0 6px;">📂 Browser Stacks</button>
 </div>
@@ -1305,6 +1308,7 @@
   <span>🃏 Card: <b id="status-card">1/1</b></span>
   <span>🔧 Tool: <b id="status-tool">pointer</b></span>
   <span>📐 Pos: <b id="status-pos">0, 0</b></span>
+  <span id="drive-status-area" style="display:none;margin-left:auto;font-size:10px">☁ <b id="drive-status">Google Drive</b></span>
   <span style="margin-left:auto">HyperWeb Stack Author v1.0</span>
   <button onclick="toggleVarPanel()" id="var-panel-toggle-btn" style="margin-left:6px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">{} Variables</button>
   <button onclick="toggleCheatsheet()" id="cheatsheet-toggle-btn" style="margin-left:6px;background:var(--btn-face);border-top:1px solid var(--highlight);border-left:1px solid var(--highlight);border-bottom:1px solid var(--shadow);border-right:1px solid var(--shadow);cursor:pointer;font-family:inherit;font-size:10px;padding:1px 7px;">? Script Help</button>
@@ -4312,9 +4316,9 @@ function safeFilename(name) {
 // ============================================================
 // SAVE / LOAD
 // ============================================================
-function saveStack() {
+function buildStackData() {
   saveCurrentCardImage();
-  const data = {
+  return {
     version: 2,
     projectName,
     customSounds,
@@ -4328,6 +4332,10 @@ function saveStack() {
       buttons: card.buttons
     }))
   };
+}
+
+function saveStack() {
+  const data = buildStackData();
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -4335,39 +4343,35 @@ function saveStack() {
   a.click();
 }
 
+async function loadStackFromData(data) {
+  if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid stack data');
+  if (data.projectName) { projectName = data.projectName; updateProjectNameDisplay(); }
+  if (data.customSounds) Object.assign(customSounds, data.customSounds);
+  stackVarDefs = data.variables && typeof data.variables === 'object' ? data.variables : {};
+  renderVarPanel();
+  stack = data.stack.map(card => ({
+    id: card.id || Date.now(),
+    name: card.name || 'Card',
+    script: card.script || '',
+    imageData: card.imageData || null,
+    textObjects: card.textObjects || [],
+    buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, nameId: '', script: '', ...b }))
+  }));
+  currentCardIdx = 0;
+  await loadCardImage(stack[0]);
+  renderButtonsLayer();
+  renderTextLayer();
+  rebuildStrip();
+  updateStatus();
+  updateCardNameInput();
+}
+
 async function loadStackFile(e) {
   const file = e.target.files[0];
   if (!file) return;
-  const text = await file.text();
   try {
-    const data = JSON.parse(text);
-    if (!data.stack || !Array.isArray(data.stack)) throw new Error('Invalid');
-    // Restore project name
-    if (data.projectName) {
-      projectName = data.projectName;
-      updateProjectNameDisplay();
-    }
-    // Restore custom sounds if present
-    if (data.customSounds) {
-      Object.assign(customSounds, data.customSounds);
-    }
-    stackVarDefs = data.variables && typeof data.variables === 'object' ? data.variables : {};
-    renderVarPanel();
-    stack = data.stack.map(card => ({
-      id: card.id || Date.now(),
-      name: card.name || 'Card',
-      script: card.script || '',
-      imageData: card.imageData || null,
-      textObjects: card.textObjects || [],
-      buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, nameId: '', script: '', ...b }))
-    }));
-    currentCardIdx = 0;
-    await loadCardImage(stack[0]);
-    renderButtonsLayer();
-    renderTextLayer();
-    rebuildStrip();
-    updateStatus();
-    updateCardNameInput();
+    const data = JSON.parse(await file.text());
+    await loadStackFromData(data);
   } catch(err) {
     alert('Could not load stack file: ' + err.message);
   }
@@ -4971,6 +4975,13 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); undo(); return; }
   if ((e.ctrlKey || e.metaKey) && (key === 'y' || key === 'Z')) { e.preventDefault(); redo(); return; }
 
+  // Save
+  if ((e.ctrlKey || e.metaKey) && key === 's') {
+    e.preventDefault();
+    driveFileId ? driveSaveFile() : saveStack();
+    return;
+  }
+
   // Copy (button or card)
   if ((e.ctrlKey || e.metaKey) && key === 'c') {
     e.preventDefault();
@@ -5112,6 +5123,195 @@ buildPalette('stroke-palette', 'stroke');
 buildPalette('fill-palette', 'fill');
 textLayer = document.getElementById('text-layer');
 renderTextLayer();
+
+// ============================================================
+// GOOGLE DRIVE INTEGRATION
+// ============================================================
+// Fill in your OAuth 2.0 Client ID from Google Cloud Console.
+// Authorised JavaScript origins must include this page's origin.
+const GOOG_CLIENT_ID = '621179619579-aq4pdoej4n4rtf4p0dur0ctr41q9eg5p.apps.googleusercontent.com';
+const GOOG_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+let driveFileId = null;     // Drive file being edited (null = not in Drive mode)
+let driveFolderId = null;   // target folder when action === 'create'
+let driveFileName = null;   // file name on Drive
+let driveAccessToken = null;
+let driveTokenClient = null;
+
+// Called automatically by the GIS <script> tag's onload attribute.
+function initGoogleDrive() {
+  if (!GOOG_CLIENT_ID) return; // not configured
+
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('state');
+  if (!raw) return;
+
+  let state;
+  try { state = JSON.parse(raw); } catch { return; }
+
+  if (state.action === 'open' && Array.isArray(state.ids) && state.ids.length > 0) {
+    driveFileId = state.ids[0];
+  } else if (state.action === 'create' && state.folderId) {
+    driveFolderId = state.folderId;
+  } else {
+    return;
+  }
+
+  driveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOG_CLIENT_ID,
+    scope: GOOG_SCOPES,
+    callback: _driveHandleToken,
+  });
+
+  // Request a token; shows the consent screen only on first use.
+  driveTokenClient.requestAccessToken({ prompt: '' });
+}
+
+async function _driveHandleToken(resp) {
+  if (resp.error) { alert('Google sign-in failed: ' + resp.error); return; }
+  driveAccessToken = resp.access_token;
+
+  if (driveFileId) {
+    await driveLoadFile();
+  } else if (driveFolderId) {
+    await _driveCreateFile();
+  }
+
+  _driveUpdateUI();
+}
+
+async function driveLoadFile() {
+  _driveSetStatus('Loading…');
+  try {
+    // Fetch metadata (file name)
+    const metaResp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=name`,
+      { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+    );
+    if (!metaResp.ok) throw new Error('Metadata fetch failed (' + metaResp.status + ')');
+    const meta = await metaResp.json();
+    driveFileName = meta.name;
+
+    // Fetch file content
+    const contentResp = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+      { headers: { Authorization: `Bearer ${driveAccessToken}` } }
+    );
+    if (!contentResp.ok) throw new Error('Content fetch failed (' + contentResp.status + ')');
+    const data = await contentResp.json();
+
+    await loadStackFromData(data);
+    _driveSetStatus(driveFileName);
+  } catch (err) {
+    _driveSetStatus('Error');
+    alert('Could not load from Google Drive:\n' + err.message);
+  }
+}
+
+async function driveSaveFile() {
+  if (!driveAccessToken) { alert('Not connected to Google Drive.'); return; }
+
+  // If token may have expired, silently refresh before saving.
+  if (!driveAccessToken) {
+    driveTokenClient.requestAccessToken({ prompt: '' });
+    return; // callback will re-trigger save
+  }
+
+  // Create a new file if we only have a folder (first save after "create" action).
+  if (!driveFileId && driveFolderId) { await _driveCreateFile(); return; }
+  if (!driveFileId) return;
+
+  _driveSetStatus('Saving…');
+  try {
+    const data = buildStackData();
+    const json = JSON.stringify(data);
+    const boundary = 'hweb_mp_' + Date.now();
+    const name = driveFileName || (safeFilename(projectName) + '.hweb');
+    const body = [
+      `--${boundary}`,
+      'Content-Type: application/json; charset=UTF-8',
+      '',
+      JSON.stringify({ name }),
+      `--${boundary}`,
+      'Content-Type: application/json',
+      '',
+      json,
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const resp = await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart&fields=name`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${driveAccessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      }
+    );
+    if (!resp.ok) {
+      // Token may have expired (401) — re-auth and retry once.
+      if (resp.status === 401) {
+        driveAccessToken = null;
+        driveTokenClient.requestAccessToken({ prompt: '' });
+        return;
+      }
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || resp.statusText);
+    }
+    _driveSetStatus('Saved ✓');
+    // Briefly show "Saved ✓" then revert to the file name.
+    setTimeout(() => _driveSetStatus(driveFileName), 2500);
+  } catch (err) {
+    _driveSetStatus('Save failed');
+    alert('Could not save to Google Drive:\n' + err.message);
+  }
+}
+
+async function _driveCreateFile() {
+  _driveSetStatus('Creating…');
+  try {
+    const name = safeFilename(projectName) + '.hweb';
+    const metaResp = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${driveAccessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        parents: [driveFolderId],
+        mimeType: 'application/json',
+      }),
+    });
+    if (!metaResp.ok) throw new Error('File creation failed (' + metaResp.status + ')');
+    const meta = await metaResp.json();
+    driveFileId = meta.id;
+    driveFileName = name;
+    _driveUpdateUI();
+    await driveSaveFile(); // write initial content
+  } catch (err) {
+    _driveSetStatus('Error');
+    alert('Could not create Drive file:\n' + err.message);
+  }
+}
+
+function _driveSetStatus(msg) {
+  const el = document.getElementById('drive-status');
+  if (el) el.textContent = msg;
+}
+
+function _driveUpdateUI() {
+  const inDriveMode = !!(driveFileId || driveFolderId);
+  ['drive-save-btn', 'menu-drive-save'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = inDriveMode ? '' : 'none';
+  });
+  const area = document.getElementById('drive-status-area');
+  if (area) area.style.display = inDriveMode ? 'inline' : 'none';
+  if (inDriveMode) _driveSetStatus(driveFileName || 'Google Drive');
+}
 </script>
 </body>
 </html>
