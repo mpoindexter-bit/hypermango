@@ -741,6 +741,7 @@
   }
   .dialog-body { padding: 14px; }
   .dialog-row { margin-bottom: 10px; display: flex; flex-direction: column; gap: 3px; }
+  .dialog-row.script-inactive { opacity: 0.38; pointer-events: none; user-select: none; }
   .dialog-row label { font-size: 11px; }
   .dialog-row input, .dialog-row select, .dialog-row textarea {
     font-family: inherit;
@@ -1596,15 +1597,15 @@ end</div>
         <label>Button ID (used in scripts):</label>
         <input type="text" id="btn-nameid" placeholder="button_1" maxlength="40">
       </div>
-      <div class="dialog-row">
+      <div class="dialog-row" id="btn-label-row">
         <label>Button Label:</label>
         <input type="text" id="btn-label" placeholder="Click Me" maxlength="40">
       </div>
-      <div class="dialog-row">
+      <div class="dialog-row" id="btn-goto-row">
         <label>Go to Card (card number, 0 = none — ignored when script is set):</label>
         <input type="number" id="btn-goto" min="0" value="0">
       </div>
-      <div class="dialog-row">
+      <div class="dialog-row" id="btn-sound-row">
         <label>Play Sound:</label>
         <select id="btn-sound">
           <option value="">— none —</option>
@@ -1616,15 +1617,15 @@ end</div>
         <input type="file" id="btn-sound-file" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp3,.mp3,.ogg,.wav" style="background:none;border:none;padding:0;font-size:11px">
         <span id="custom-sound-status" style="font-size:10px;color:var(--shadow)"></span>
       </div>
-      <div class="dialog-row" style="flex-direction:row;align-items:center;gap:8px">
+      <div class="dialog-row" id="btn-invisible-row" style="flex-direction:row;align-items:center;gap:8px">
         <input type="checkbox" id="btn-invisible" style="width:auto">
         <label for="btn-invisible">Invisible button (hidden in Play mode, outlined in Editor)</label>
       </div>
-      <div class="dialog-row" style="flex-direction:row;align-items:center;gap:8px">
+      <div class="dialog-row" id="btn-canvas-row" style="flex-direction:row;align-items:center;gap:8px">
         <input type="checkbox" id="btn-is-canvas" style="width:auto">
         <label for="btn-is-canvas">Canvas button (drawable surface — draw on it with any drawing tool)</label>
       </div>
-      <div class="dialog-row">
+      <div class="dialog-row" id="btn-effect-row">
         <label>Visual Effect:</label>
         <select id="btn-effect">
           <option value="">— none —</option>
@@ -3114,6 +3115,15 @@ function deselectButton() {
   document.querySelectorAll('.hc-button').forEach(el => el.classList.remove('selected-btn'));
 }
 
+const BTN_SCRIPT_ROWS = ['btn-label-row', 'btn-goto-row', 'btn-sound-row', 'custom-sound-row', 'btn-invisible-row', 'btn-canvas-row', 'btn-effect-row'];
+
+function updateBtnScriptGreyout() {
+  const hasScript = document.getElementById('btn-script').value.trim().length > 0;
+  BTN_SCRIPT_ROWS.forEach(id => {
+    document.getElementById(id)?.classList.toggle('script-inactive', hasScript);
+  });
+}
+
 function openButtonDialog(id) {
   const btn = stack[currentCardIdx].buttons.find(b => b.id === id);
   if (!btn) return;
@@ -3124,6 +3134,7 @@ function openButtonDialog(id) {
   document.getElementById('btn-is-canvas').checked = !!btn.isCanvas;
   document.getElementById('btn-effect').value = btn.effect || '';
   document.getElementById('btn-script').value = btn.script || '';
+  document.getElementById('btn-script').oninput = updateBtnScriptGreyout;
 
   const soundSel = document.getElementById('btn-sound');
   const customRow = document.getElementById('custom-sound-row');
@@ -3157,6 +3168,7 @@ function openButtonDialog(id) {
   };
 
   focusedButtonId = id;
+  updateBtnScriptGreyout();
   openDialog('btn-dialog');
 }
 
