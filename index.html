@@ -3051,11 +3051,15 @@ let buttonIdCounter = 1;
 
 function addButtonToCard() {
   pushUndoState();
+  const existing = stack[currentCardIdx].buttons;
+  const offset = existing.length * 24;
+  const bx = Math.min(50 + offset, CARD_W - 110);
+  const by = Math.min(50 + offset, CARD_H - 42);
   const btn = {
     id: 'hcbtn_' + (buttonIdCounter),
     nameId: 'button_' + (buttonIdCounter++),
     label: 'Button',
-    x: 50, y: 50, w: 100, h: 32,
+    x: bx, y: by, w: 100, h: 32,
     goto: 0,
     sound: '',
     invisible: false,
@@ -3200,7 +3204,7 @@ function deselectButton() {
   document.querySelectorAll('.hc-button').forEach(el => el.classList.remove('selected-btn'));
 }
 
-const BTN_SCRIPT_ROWS = ['btn-label-row', 'btn-goto-row', 'btn-sound-row', 'custom-sound-row', 'btn-invisible-row', 'btn-canvas-row', 'btn-effect-row'];
+const BTN_SCRIPT_ROWS = ['btn-label-row', 'btn-goto-row', 'btn-sound-row', 'custom-sound-row', 'btn-effect-row'];
 
 function updateBtnScriptGreyout() {
   const hasScript = document.getElementById('btn-script').value.trim().length > 0;
@@ -4438,6 +4442,17 @@ async function loadStackFromData(data) {
     textObjects: card.textObjects || [],
     buttons: (card.buttons || []).map(b => ({ invisible: false, effect: '', isCanvas: false, canvasData: null, nameId: '', script: '', ...b }))
   }));
+  // Advance counters past any IDs already in the loaded stack so new items don't collide
+  stack.forEach(card => {
+    card.buttons.forEach(b => {
+      const n = parseInt((b.id || '').replace('hcbtn_', ''));
+      if (!isNaN(n) && n >= buttonIdCounter) buttonIdCounter = n + 1;
+    });
+    (card.textObjects || []).forEach(t => {
+      const n = parseInt((t.id || '').replace('htxt_', ''));
+      if (!isNaN(n) && n >= textIdCounter) textIdCounter = n + 1;
+    });
+  });
   currentCardIdx = 0;
   await loadCardImage(stack[0]);
   renderButtonsLayer();
