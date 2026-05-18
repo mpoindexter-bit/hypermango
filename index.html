@@ -1585,8 +1585,10 @@ end</div>
 
 <!-- GOOGLE DRIVE SIGN-IN BANNER -->
 <div id="drive-signin-banner">
-  <span>📂 Sign in to Google Drive to open your file.</span>
-  <button id="drive-signin-btn" onclick="_driveSignIn()">Sign In</button>
+  <span>☁ Google Drive file detected.</span>
+  <button id="drive-signin-btn" onclick="_driveSignIn()">Sign in with Google to open file</button>
+  <span id="drive-banner-status" style="opacity:0.8;font-size:11px;flex:1"></span>
+  <button onclick="document.getElementById('drive-signin-banner').classList.remove('visible')" style="background:transparent;border:none;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;" title="Dismiss">✕</button>
 </div>
 
 <!-- PLAY OVERLAY -->
@@ -2621,15 +2623,15 @@ function drawLassoFinal() {
 const POLY_SNAP_RADIUS = 18; // pixels on screen — snap to first point within this distance
 
 function polyCanvasPos(e) {
-  // Returns canvas coords, clamped to card bounds
+  // Returns canvas coords — unclamped so vertices can be placed outside the card.
+  // The canvas clips rendering at its edges naturally.
   const rect = drawingCanvas.getBoundingClientRect();
   const scaleX = CARD_W / rect.width;
   const scaleY = CARD_H / rect.height;
   const src = e.touches ? e.touches[0] : e;
   return {
-    x: Math.max(0, Math.min(CARD_W, Math.round((src.clientX - rect.left) * scaleX))),
-    y: Math.max(0, Math.min(CARD_H, Math.round((src.clientY - rect.top) * scaleY))),
-    // Also return screen coords of the first point for snap-circle sizing
+    x: Math.round((src.clientX - rect.left) * scaleX),
+    y: Math.round((src.clientY - rect.top) * scaleY),
     screenScale: scaleX
   };
 }
@@ -2803,6 +2805,41 @@ drawingCanvas.addEventListener('dblclick', e => {
   if (polyPoints.length > 1) polyPoints.pop();
   polyCommit();
 });
+
+// Allow polygon vertices to be placed in the checkered surround outside the card.
+{
+  const _polyCardContainer = document.getElementById('card-container');
+  document.getElementById('canvas-area').addEventListener('click', e => {
+    if (currentTool !== 'polygon') return;
+    if (_polyCardContainer.contains(e.target)) return; // handled by drawingCanvas listener
+    if (e.detail >= 2) return; // let dblclick handle it
+
+    const p = polyCanvasPos(e);
+    if (!polyActive) {
+      drawingOnButton = null;
+      activeSurface = null;
+      pushUndoState();
+      snapshotBeforeDraw = drawCtx.getImageData(0, 0, CARD_W, CARD_H);
+      polyPoints = [p];
+      polyActive = true;
+      drawPolyPreview(p, false);
+      return;
+    }
+    if (polyPoints.length >= 2) {
+      const snapping = polyScreenDist(p, polyPoints[0], CARD_W / drawingCanvas.getBoundingClientRect().width) < POLY_SNAP_RADIUS;
+      if (snapping) { polyCommit(); return; }
+    }
+    polyPoints.push(p);
+    drawPolyPreview(p, false);
+  });
+
+  document.getElementById('canvas-area').addEventListener('dblclick', e => {
+    if (currentTool !== 'polygon' || !polyActive) return;
+    if (_polyCardContainer.contains(e.target)) return;
+    if (polyPoints.length > 1) polyPoints.pop();
+    polyCommit();
+  });
+}
 
 // Escape cancels in-progress polygon
 document.addEventListener('keydown', e => {
@@ -3028,8 +3065,10 @@ function addButtonToCard() {
   };
   stack[currentCardIdx].buttons.push(btn);
   saveCurrentCardImage();
+  setTool('pointer');
   renderButtonsLayer();
   updateThumb(currentCardIdx);
+  selectButton(btn.id);
 }
 
 function renderButtonsLayer() {
@@ -5189,59 +5228,86 @@ let driveFileName = null;   // file name on Drive
 let driveAccessToken = null;
 let driveTokenClient = null;
 
-// Called automatically by the GIS <script> tag's onload attribute.
-function initGoogleDrive() {
-  if (!GOOG_CLIENT_ID) return; // not configured
-
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('state');
-  if (!raw) return;
-
-  let state;
-  try { state = JSON.parse(raw); } catch { return; }
-
-  if (state.action === 'open' && Array.isArray(state.ids) && state.ids.length > 0) {
-    driveFileId = state.ids[0];
-  } else if (state.action === 'create' && state.folderId) {
-    driveFolderId = state.folderId;
-  } else {
-    return;
-  }
-
-  driveTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOG_CLIENT_ID,
-    scope: GOOG_SCOPES,
-    callback: _driveHandleToken,
-  });
-
-  // Request a token; shows the consent screen only on first use.
-  driveTokenClient.requestAccessToken({ prompt: '' });
+function _driveDebug(msg) {
+  console.log('[Drive]', msg);
+  const el = document.getElementById('drive-banner-status');
+  if (el) el.textContent = msg;
 }
 
-function _driveShowSignInBanner() {
+function _driveShowSignInBanner(msg) {
   document.getElementById('drive-signin-banner').classList.add('visible');
+  if (msg) _driveDebug(msg);
 }
 
 function _driveHideSignInBanner() {
   document.getElementById('drive-signin-banner').classList.remove('visible');
 }
 
+// Called automatically by the GIS <script> tag's onload attribute.
+function initGoogleDrive() {
+  if (!GOOG_CLIENT_ID) {
+    _driveDebug('CLIENT_ID not set — Drive integration disabled.');
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('state');
+  if (!raw) return; // Normal page load, not coming from Drive
+
+  _driveDebug('state param found: ' + decodeURIComponent(raw));
+
+  let state;
+  try {
+    state = JSON.parse(raw);
+  } catch (err) {
+    _driveShowSignInBanner('Could not parse state param: ' + err.message);
+    return;
+  }
+
+  _driveDebug('action=' + state.action + ' ids=' + JSON.stringify(state.ids));
+
+  if (state.action === 'open' && Array.isArray(state.ids) && state.ids.length > 0) {
+    driveFileId = state.ids[0];
+  } else if (state.action === 'create' && state.folderId) {
+    driveFolderId = state.folderId;
+  } else {
+    _driveShowSignInBanner('Unrecognised Drive action: ' + JSON.stringify(state));
+    return;
+  }
+
+  try {
+    driveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOG_CLIENT_ID,
+      scope: GOOG_SCOPES,
+      callback: _driveHandleToken,
+      error_callback: e => _driveShowSignInBanner('Auth error: ' + (e.message || e.type || JSON.stringify(e))),
+    });
+  } catch (err) {
+    _driveShowSignInBanner('GIS init error: ' + err.message);
+    return;
+  }
+
+  // Show the banner and wait for a user click before requesting the token.
+  // Calling requestAccessToken() without a user gesture causes popup blockers
+  // to silently swallow the OAuth window.
+  const action = driveFileId ? 'open file' : 'create file';
+  _driveShowSignInBanner('Ready — click the button to ' + action + ' (ID: ' + (driveFileId || driveFolderId) + ')');
+  document.getElementById('drive-signin-btn').textContent = 'Sign in with Google to ' + action;
+}
+
 function _driveSignIn() {
-  // Called from the sign-in banner button — user gesture allows the OAuth popup
-  driveTokenClient.requestAccessToken({ prompt: 'select_account' });
+  if (!driveTokenClient) { _driveDebug('Token client not initialised'); return; }
+  _driveDebug('Requesting OAuth token…');
+  // No prompt override — GIS will show sign-in UI only if needed.
+  driveTokenClient.requestAccessToken();
 }
 
 async function _driveHandleToken(resp) {
   if (resp.error) {
-    // Silent auth failed. If we're in Drive open/create mode, show the sign-in
-    // banner so the user can trigger auth via a button click (required for popup).
-    if (driveFileId || driveFolderId) {
-      _driveShowSignInBanner();
-    } else {
-      alert('Google sign-in failed: ' + resp.error);
-    }
+    _driveShowSignInBanner('Sign-in failed: ' + resp.error + (resp.error_description ? ' — ' + resp.error_description : ''));
     return;
   }
+  _driveDebug('Token received. Loading file…');
   _driveHideSignInBanner();
   driveAccessToken = resp.access_token;
 
@@ -5257,28 +5323,41 @@ async function _driveHandleToken(resp) {
 async function driveLoadFile() {
   _driveSetStatus('Loading…');
   try {
-    // Fetch metadata (file name)
+    _driveDebug('Fetching metadata for file ' + driveFileId);
     const metaResp = await fetch(
       `https://www.googleapis.com/drive/v3/files/${driveFileId}?fields=name`,
       { headers: { Authorization: `Bearer ${driveAccessToken}` } }
     );
-    if (!metaResp.ok) throw new Error('Metadata fetch failed (' + metaResp.status + ')');
+    if (!metaResp.ok) {
+      const body = await metaResp.text().catch(() => '');
+      throw new Error('Metadata fetch failed (' + metaResp.status + '): ' + body);
+    }
     const meta = await metaResp.json();
     driveFileName = meta.name;
+    _driveDebug('File name: ' + driveFileName + '. Fetching content…');
 
-    // Fetch file content
     const contentResp = await fetch(
       `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
       { headers: { Authorization: `Bearer ${driveAccessToken}` } }
     );
-    if (!contentResp.ok) throw new Error('Content fetch failed (' + contentResp.status + ')');
-    const data = await contentResp.json();
+    if (!contentResp.ok) {
+      const body = await contentResp.text().catch(() => '');
+      throw new Error('Content fetch failed (' + contentResp.status + '): ' + body);
+    }
+
+    const text = await contentResp.text();
+    _driveDebug('Content received (' + text.length + ' bytes). Parsing…');
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error('JSON parse error: ' + e.message + '\nFirst 200 chars: ' + text.slice(0, 200)); }
 
     await loadStackFromData(data);
     _driveSetStatus(driveFileName);
+    _driveDebug('Loaded successfully: ' + driveFileName);
   } catch (err) {
-    _driveSetStatus('Error');
-    alert('Could not load from Google Drive:\n' + err.message);
+    _driveSetStatus('Load error');
+    _driveShowSignInBanner('Load failed: ' + err.message);
+    console.error('[Drive] Load error:', err);
   }
 }
 
@@ -5387,5 +5466,7 @@ function _driveUpdateUI() {
   if (inDriveMode) _driveSetStatus(driveFileName || 'Google Drive');
 }
 </script>
+
+
 </body>
 </html>
