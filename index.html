@@ -3777,16 +3777,17 @@ function showSayDialog(promptText) {
     if (!backdrop) { resolve(); return; }
     body.textContent = promptText;
     backdrop.classList.add('active');
-    setTimeout(() => okBtn.focus(), 60);
     function finish() {
       backdrop.classList.remove('active');
       okBtn.removeEventListener('click', finish);
-      document.removeEventListener('keydown', onKey);
+      okBtn.removeEventListener('keydown', onKey);
       resolve();
     }
     function onKey(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } }
     okBtn.addEventListener('click', finish);
-    document.addEventListener('keydown', onKey);
+    // Delay keyboard listener until after focus — prevents key-repeat Enter from a
+    // previous dialog (e.g. ask) from immediately closing this one.
+    setTimeout(() => { okBtn.focus(); okBtn.addEventListener('keydown', onKey); }, 60);
   });
 }
 
@@ -3799,7 +3800,6 @@ function showYesNoDialog(promptText) {
     if (!backdrop) { resolve(0); return; }
     body.textContent = promptText;
     backdrop.classList.add('active');
-    setTimeout(() => yesBtn.focus(), 60);
     function finish(val) {
       backdrop.classList.remove('active');
       yesBtn.removeEventListener('click', onYes);
@@ -3810,12 +3810,14 @@ function showYesNoDialog(promptText) {
     function onYes() { finish(1); }
     function onNo() { finish(0); }
     function onKey(e) {
-      if (e.key === 'Enter' || e.key === 'y' || e.key === 'Y') { e.preventDefault(); finish(1); }
+      if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); finish(1); }
       if (e.key === 'Escape' || e.key === 'n' || e.key === 'N') { e.preventDefault(); finish(0); }
     }
     yesBtn.addEventListener('click', onYes);
     noBtn.addEventListener('click', onNo);
-    document.addEventListener('keydown', onKey);
+    // Delay keyboard listener to prevent key-repeat from a prior dialog closing this one.
+    // Enter on the focused Yes button fires naturally via click.
+    setTimeout(() => { yesBtn.focus(); document.addEventListener('keydown', onKey); }, 60);
   });
 }
 
