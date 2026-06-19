@@ -4491,6 +4491,12 @@ function doNewStack() {
   projectName = 'Untitled Stack';
   updateProjectNameDisplay();
   addCard(true);
+  if (driveFileId || driveFolderId) {
+    driveFolderId = driveFolderId || 'root';
+    driveFileId = null;
+    driveFileName = null;
+    _driveUpdateUI();
+  }
 }
 
 // ============================================================
