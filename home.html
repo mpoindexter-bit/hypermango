@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HyperMango — Browser-Based Stack Authoring</title>
+<meta name="description" content="HyperMango is a free, browser-based multimedia stack authoring tool. Create multi-card stacks with drawings, buttons, and scripts, and optionally save them to your own Google Drive.">
+<style>
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    color: #1a1a1a;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+  h1 { font-size: 2.2rem; margin-bottom: 0.15em; }
+  h2 { font-size: 1.2rem; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  .tagline { color: #555; font-size: 1.05rem; margin-bottom: 1.5em; }
+  .meta { color: #555; font-size: 0.9rem; margin-bottom: 2.5em; }
+  a { color: #0057b8; }
+  ul { padding-left: 1.4em; }
+  li { margin-bottom: 0.4em; }
+  .highlight {
+    background: #f0f6ff;
+    border-left: 4px solid #0057b8;
+    padding: 12px 16px;
+    margin: 1.5em 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .cta {
+    display: inline-block;
+    margin: 1.5em 0;
+    padding: 12px 24px;
+    background: #0057b8;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-family: Georgia, serif;
+    font-weight: bold;
+  }
+  .cta:hover { background: #00408a; }
+  footer { margin-top: 3em; font-size: 0.85rem; color: #777; border-top: 1px solid #ddd; padding-top: 1em; }
+</style>
+</head>
+<body>
+
+<h1>HyperMango</h1>
+<p class="tagline">A free, browser-based multimedia stack authoring tool.</p>
+<p class="meta">
+  Hosted at: <a href="https://mango.yebooyah.club">mango.yebooyah.club</a>
+</p>
+
+<div class="highlight">
+  <strong>What it is:</strong> HyperMango lets you build interactive, multi-card "stacks" —
+  combining drawings, images, buttons, and simple scripts — entirely in your web browser.
+  Think of it as a modern, browser-based take on classic stack-based authoring tools.
+  No installation, no account required to try it.
+</div>
+
+<h2>What HyperMango Does</h2>
+<p>
+  HyperMango is a static, client-side web app (no backend server) for creating and editing
+  multi-card "stacks." Within the app you can:
+</p>
+<ul>
+  <li>Create new cards and arrange them into a stack.</li>
+  <li>Draw and place images directly on a card's canvas.</li>
+  <li>Add interactive buttons that link cards together or run simple scripts.</li>
+  <li>Save your work as a local <code>.hweb</code> file, or to your own Google Drive.</li>
+  <li>Open and resume editing any <code>.hweb</code> stack you've previously created.</li>
+</ul>
+<p>
+  HyperMango is designed for personal projects, hobby interactive fiction, and educational
+  use, including K–12 classrooms via Google Classroom and Google Drive.
+</p>
+
+<h2>Try It</h2>
+<p>
+  The app is available now, with no sign-in required to open it:
+</p>
+<a class="cta" href="https://mango.yebooyah.club/index.html">Open HyperMango</a>
+
+<h2>Google Account Access</h2>
+<p>
+  HyperMango works entirely offline in your browser by default. If you choose to connect
+  your Google account, the app requests a single, narrow OAuth scope —
+  <code>https://www.googleapis.com/auth/drive.file</code> — which only allows it to read
+  and save the specific files you open or create with HyperMango. It cannot see, list, or
+  modify any other file in your Drive. We do not use this access for advertising, analytics,
+  or any purpose beyond opening and saving your own stack files.
+</p>
+<p>
+  Full details on what data is accessed, why, and how it's handled are in our
+  <a href="https://mango.yebooyah.club/privacy.html">Privacy Policy</a>.
+</p>
+
+<h2>Learn More</h2>
+<ul>
+  <li><a href="https://mango.yebooyah.club/privacy.html">Privacy Policy</a></li>
+  <li><a href="https://mango.yebooyah.club/terms.html">Terms of Service</a></li>
+</ul>
+
+<footer>
+  &copy; 2026 HyperMango &nbsp;|&nbsp;
+  <a href="https://mango.yebooyah.club/index.html">Open the App</a> &nbsp;|&nbsp;
+  <a href="https://mango.yebooyah.club/privacy.html">Privacy Policy</a> &nbsp;|&nbsp;
+  <a href="https://mango.yebooyah.club/terms.html">Terms of Service</a>
+</footer>
+
+</body>
+</html>
